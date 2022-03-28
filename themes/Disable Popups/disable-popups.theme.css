@@ -7,8 +7,7 @@
  * @license MIT
  */
 
-/*
-
+@import url("https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/themes/Disable%20Popups/disable-popups.css");
 
 /* To disable a popup type, change "display: initial;" to "display: none;" in the following variables, or vise-versa */
 :root {

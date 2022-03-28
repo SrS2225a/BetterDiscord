@@ -7,7 +7,7 @@
 .container-1ZA19X.stickerIconOffset-2zxofV {
      display: var(--disable-sticker-popup); /* --disable-sticker-popup */
  }
-.button-f2h6uQ[aria-label*="Open GIF picker"] .button-f2h6uQ[aria-label*="Send a gift"] {
+.button-f2h6uQ[aria-label*="Open GIF picker"], .button-f2h6uQ[aria-label*="Send a gift"] {
      display: var(--hide-extra-channel-textarea-buttons); /* --hide-extra-channel-textarea-buttons */
  }
 .channelNotice-7cg_jN {
