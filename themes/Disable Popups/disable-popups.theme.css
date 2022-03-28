@@ -1,0 +1,21 @@
+/**
+ * @name disable-popups
+ * @description A simple theme that allows you to choose which annoying discord popups you want to disable.
+ * @author SrS2225a
+ * @authorId 270848136006729728
+ * @version 1.0.0
+ * @license MIT
+ */
+
+/*
+
+
+/* To disable a popup type, change "display: initial;" to "display: none;" in the following variables, or vise-versa */
+:root {
+    --disable-sticker-popup: initial; /* disables sticker popups */
+    --hide-channel-notices: initial; /* hides channel notices */
+    --disable-header-ribbon: initial; /* disables header ribbon */
+    --disalbe-added-devices: initial; /* disables added devices */
+    --disable-notices: initial; /* disables notices */
+    --hide-extra-channel-textarea-buttons: initial; /* hides extra channel textarea buttons */
+}
