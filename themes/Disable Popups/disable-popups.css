@@ -1,9 +1,6 @@
 
 /*support for disabling booster popups, stickers, and headers*/
 
- /* replace all displays with a variable at a later date */
-
-
 .container-1ZA19X.stickerIconOffset-2zxofV {
      display: var(--disable-sticker-popup); /* --disable-sticker-popup */
  }
@@ -18,4 +15,8 @@
 }
 .notice-2HEN-u {
     display: var(--disable-notices); /* --hide-notices */
+}
+
+.layerContainer-2v_Sit {
+    display: var(--disable-join-leaves-popups); /* --hide-layers */
 }

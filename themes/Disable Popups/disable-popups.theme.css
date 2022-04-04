@@ -17,4 +17,5 @@
     --disalbe-added-devices: initial; /* disables added devices */
     --disable-notices: initial; /* disables notices */
     --hide-extra-channel-textarea-buttons: initial; /* hides extra channel textarea buttons */
+    --disable-join-leaves-popups: initial; /* disables join/leave popups */
 }
