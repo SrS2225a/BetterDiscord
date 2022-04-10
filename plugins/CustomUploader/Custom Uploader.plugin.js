@@ -5,13 +5,14 @@
  * @version 1.0.0
  * @license MIT
  * @description Allows you to upload files to your own server or another host.
- * @website https://github.com/SrS2225a/BetterDiscord/tree/master/plugins/CustomUploader
+ * @website https://github.com/SrS2225a
  * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js
  * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js
  */
 
 
 const request = require("request");
+const fs = require("fs");
 module.exports = (() => {
     const config = {
         info: {
@@ -28,31 +29,12 @@ module.exports = (() => {
         github: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins",
         github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js",
         defaultConfig: [
-            // {
-            //     "type": "dropdown",
-            //     "name": "Destination Type",
-            //     "id": "destinationType",
-            //     "defaultValue": "Image Upload",
-            //     "note": "The type of destination you want to use.",
-            //     "value": "Image Upload",
-            //     "options": [
-            //         {
-            //             label: "Image Upload",
-            //             value: "Image Upload"
-            //         },
-            //         {
-            //             label: "File Upload",
-            //             value: "File Upload"
-            //         },
-            //         {
-            //             label: "Text Upload",
-            //             value: "Text Upload"
-            //         },
-            //         {
-            //
-            //         }
-            //     ]
-            // },
+            {
+                type: "switch",
+                name: "Upload using uploader service instead of discords",
+                id: "uploader",
+                value: true,
+            },
             {
                 type: "textbox",
                 id: "uploaderUrl",
@@ -78,7 +60,7 @@ module.exports = (() => {
                 type: "textbox",
                 id: "uploaderResponseParser",
                 value: "url",
-                note: "How the response URL should be parsed.\nExample: url"
+                note: "The response to parse from the uploader.\nExample: data.url",
             },
             {
                 type: "dropdown",
@@ -190,81 +172,41 @@ module.exports = (() => {
                 return class CustomUploader extends Plugin {
                     start() {
                         this.attachment = WebpackModules.find((m) => m.default?.displayName === "Attachment")
+                        this.fileUploadMod = WebpackModules.getByProps("instantBatchUpload", "upload");
+                        this.MessageUtils = WebpackModules.getByProps("sendMessage", "_sendMessage");
+                        this.draft = WebpackModules.getByProps("getDraft");
                         Dispatcher.subscribe("CHANNEL_SELECT", this.onChannelChange);
                         this.PatchContextMenu()
                         this.PatchFileMessage();
-                        // addittonally... add a patch that allows you to drag and drop the file into discord, you could make it so that the file only gets sent to the upload service instead of discord, and instead you only send a link to the file
+                        this.PatchFileUpload();
                     }
 
                     async upload(url) {
                         let data = [];
                         let options = {}
-                        const https = require("https");
-                        if (this.settings.uploaderBody === "FormData") {
-                            const response = await request.get(url).on("data", (chunk) => {
-                                data.push(Buffer.from(chunk));
-                            }).on("end", () => {
-                                options.formData = {custom_file: {value: Buffer.concat(data), options: {filename: url.split('/').pop(), contentType: response.headers["content-type"]}}}
-                                options.url = this.settings.uploaderUrl;
-                                options.method = this.settings.uploaderMethod;
-                                options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
-                                options.paramaters = this.settings.uploaderParamaters ? JSON.parse(this.settings?.uploaderParamaters) : {};
-                                uploadData(options, this.settings.uploaderResponseParser)
-                            });
-                        } else if (this.settings.uploaderBody === "FormURLEncoded") {
-                            await request.get(url).on("data", (chunk) => {
-                                data.push(Buffer.from(chunk));
-                            }).on("end", () => {
-                                options.form = {
-                                    file: Buffer.concat(data),
-                                };
-                                options.url = this.settings.uploaderUrl;
-                                options.method = this.settings.uploaderMethod;
-                                options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
-                                options.paramaters = this.settings.uploaderParamaters ? JSON.parse(this.settings?.uploaderParamaters) : {};
-                                uploadData(options, this.settings.uploaderResponseParser)
-                            });
-                        } else if (this.settings.uploaderBody === "XML") {
-                            await request.get(url).on("data", (chunk) => {
-                                data.push(Buffer.from(chunk));
-                            }).on("end", () => {
-                                options.multipart = [{body: Buffer.concat(data),  name: 'file', content_type: 'application/xml'}];
-                                options.url = this.settings.uploaderUrl;
-                                options.method = this.settings.uploaderMethod;
-                                options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
-                                options.paramaters = this.settings.uploaderParamaters ? JSON.parse(this.settings?.uploaderParamaters) : {};
-                                uploadData(options, this.settings.uploaderResponseParser)
-                            });
-                        } else if (this.settings.uploaderBody === "JSON") {
-                            await request.get(url).on("data", (chunk) => {
-                                data.push(Buffer.from(chunk));
-                            }).on("end", () => {
-                                options.multipart = [{body: Buffer.concat(data),  name: 'file', content_type: 'application/json'}];
-                                options.url = this.settings.uploaderUrl;
-                                options.method = this.settings.uploaderMethod;
-                                options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
-                                options.paramaters = this.settings.uploaderParamaters ? JSON.parse(this.settings?.uploaderParamaters) : {};
-                                uploadData(options, this.settings.uploaderResponseParser)
-                            });
-                        } else if (this.settings.uploaderBody === "Binary") {
-                            await request.get(url).on("data", (chunk) => {
-                                data.push(Buffer.from(chunk));
-                            }).on("end", () => {
-                                options.body = Buffer.concat(data);
-                                options.url = this.settings.uploaderUrl;
-                                options.method = this.settings.uploaderMethod;
-                                options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
-                                options.paramaters = this.settings.uploaderParamaters ? JSON.parse(this.settings?.uploaderParamaters) : {};
-                                uploadData(options, this.settings.uploaderResponseParser)
-                            });
-                        }
+                        // let user know that thier file is being uploaded
+                        Toasts.info(`Uploading to ${this.settings.uploaderUrl} ...`);
+                        const response = await request.get(url).on("data", (chunk) => {
+                            data.push(Buffer.from(chunk));
+                        }).on("end", () => {
+                            if (this.settings.uploaderBody === "FormData") {options.formData = {custom_file: {value: Buffer.concat(data), options: {filename: url.split('/').pop(), contentType: response.headers["content-type"]}}}}
+                            else if (this.settings.uploaderBody === "FormURLEncoded") {options.form = {file: Buffer.concat(data)}}
+                            else if (this.settings.uploaderBody === "JSON") {options.multipart = [{body: Buffer.concat(data),  name: 'file', content_type: 'application/json'}]}
+                            else if (this.settings.uploaderBody === "XML") {options.multipart = [{body: Buffer.concat(data),  name: 'file', content_type: 'application/xml'}]}
+                            else if (this.settings.uploaderBody === "Binary") {options.body = Buffer.concat(data)}
+                            options.url = this.settings.uploaderUrl;
+                            options.method = this.settings.uploaderMethod;
+                            options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
+                            options.paramaters = this.settings.uploaderParamaters ? JSON.parse(this.settings?.uploaderParamaters) : {};
+                            uploadData(options, this.settings.uploaderResponseParser)
+                        });
+
 
                         function uploadData(options, callback) {
                             console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + options.method + " " + options.url);
-                            // replace fetch with request to advoid cros
                             request(options, function (error, response, body) {
                                 console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + response.statusCode + " " + response.statusMessage);
-                                if (response?.statusCode === 200) {
+                                if (response?.statusCode === 200 || response?.statusCode === 201 || response?.statusCode === 202) {
                                     // coverts a string like data.url to dot notation for the returned json
                                     function recompose(obj, string) {
                                         var parts = string.split('.');
@@ -281,13 +223,69 @@ module.exports = (() => {
                                         DiscordNative.clipboard.copy(url);
                                         Toasts.success(`File Uploaded Successfully as: ${url}. It has been copied to your clipboard.`);
                                     } else {
-                                        Toasts.warning("File Uploaded Successfully, but no URL was returned. Please check your settings and try again.");
+                                        Toasts.success(`File Uploaded Successfully.`);
                                     }
                                 } else {
-
                                     Toasts.error(`Failed To Upload File: ${response?.statusMessage}`);
                                 }
                             });
+                        }
+                    }
+
+                    fileUpload(files, channelId, draft) {
+                        const message = this.MessageUtils
+                        let urls = [];
+                        let options = {}
+                        let n = 0;
+                        Toasts.info(`Uploading to ${this.settings.uploaderUrl} ...`);
+                        for (const file of files) {
+                            file.item.file.arrayBuffer().then(buffer => {
+                                const data = Buffer.from(buffer);
+                                if (this.settings.uploaderBody === "FormData") {options.formData = {custom_file: {value: data, options: {filename: file.item.file.name, contentType: file.item.file.type}}}}
+                                else if (this.settings.uploaderBody === "FormURLEncoded") {options.form = {file: Buffer.concat(data)}}
+                                else if (this.settings.uploaderBody === "JSON") {options.multipart = [{body: Buffer.concat(data),  name: 'file', content_type: 'application/json'}]}
+                                else if (this.settings.uploaderBody === "XML") {options.multipart = [{body: Buffer.concat(data),  name: 'file', content_type: 'application/xml'}]}
+                                else if (this.settings.uploaderBody === "Binary") {options.body = Buffer.concat(data)}
+                                options.url = this.settings.uploaderUrl;
+                                options.method = this.settings.uploaderMethod;
+                                options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
+                                options.paramaters = this.settings.uploaderParamaters ? JSON.parse(this.settings?.uploaderParamaters) : {};
+                                const callback = this.settings.uploaderResponseParser
+                                console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + options.method + " " + options.url);
+                                request(options, function (error, response, body) {
+                                    n++;
+                                    console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + response.statusCode + " " + response.statusMessage);
+                                    if (response?.statusCode === 200 || response?.statusCode === 201 || response?.statusCode === 202) {
+                                        // coverts a string like data.url to dot notation for the returned json
+                                        function recompose(obj, string) {
+                                            var parts = string.split('.');
+                                            var newObj = obj[parts[0]];
+                                            if (parts[1]) {
+                                                parts.splice(0, 1);
+                                                var newString = parts.join('.');
+                                                return recompose(newObj, newString);
+                                            }
+                                            return newObj;
+                                        }
+                                        let url = recompose(JSON.parse(body), callback);
+                                        if (url) {
+                                            urls.push(url);
+                                        } else {
+                                            urls.push(file.item.file.name);
+                                        }
+                                    } else {
+                                        Toasts.error(`Failed To Upload File ${n}: ${response?.statusMessage}`);
+                                    }
+                                    if (n === files.length) {
+                                        after_upload(urls);
+                                    }
+                                })
+                            });
+                        }
+                        function after_upload(urls) {
+                            if (urls.length > 0) {
+                                message.sendMessage(channelId, {content: draft + "\n" + urls.join("\n")});
+                            }
                         }
                     }
 
@@ -303,7 +301,6 @@ module.exports = (() => {
                                     width: "24",
                                     height: "24",
                                     viewBox: "-80 -80 640 640",
-                                    // get blob / stream
                                     onClick: () => {this.upload(ret.props.children[2].props.href)}
                                 }, uploaderIcon);
 
@@ -315,7 +312,6 @@ module.exports = (() => {
                         )
                     }
 
-
                     PatchContextMenu() {
                         ContextMenu.getDiscordMenu("MessageContextMenu").then(menu => {
                             Patcher.after(
@@ -325,16 +321,35 @@ module.exports = (() => {
                                 (_, [props], ret) => {
                                     if (props.message.attachments.length === 0) {return}
                                     const url = props.message.attachments[0].url;
+                                    console.log(url);
                                     ret.props.children.splice(5, 0, ContextMenu.buildMenuItem({label: "Upload File", action: () => {this.upload(props.message.attachments[0].url)}}));
                                 }
                             )
                         })
                     }
 
+                    PatchFileUpload() {
+                        Patcher.instead(
+                            config.info.name,
+                            this.fileUploadMod,
+                            "uploadFiles",
+                            (_, props, ret) => {
+                                const {channelId, uploads} = props[0];
+                                if (!this.settings.uploader) {
+                                    ret(...props);
+                                } else {
+                                    const draft = this.draft.getDraft(channelId, 0);
+                                    this.fileUpload(uploads, channelId, draft);
+                                }
+                            }
+                        )
+                    }
+
                     getSettingsPanel() {
                         const panel = this.buildSettingsPanel();
                         return panel.getElement();
                     }
+
                     stop() {
                         Dispatcher.unsubscribe("CHANNEL_SELECT", this.onChannelChange);
                         Patcher.unpatchAll(config.info.name);
