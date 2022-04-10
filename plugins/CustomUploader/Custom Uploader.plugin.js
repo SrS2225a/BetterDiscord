@@ -46,7 +46,7 @@ module.exports = (() => {
                 "name": "Headers",
                 "type": "textbox",
                 "id": "uploaderHeaders",
-                "value": "{\"Authorization\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI3MDg0ODEzNjAwNjcyOTcyOCIsImRhdGUiOiIyMDIwLTA3LTAyVDIxOjE5OjEzLjYyNloiLCJpYXQiOjE1OTM3MjQ3NTN9.ombFT9KmpYVMZIvZAd-VWoIhAyaYMTFm7HjyRITOKFA\"}",
+                "value": "{\"Authorization\": \"<your toke here>\"}",
                 "note": "The headers to use for the upload.\nExample: {\"Content-Type\": \"text/plain\", \"X-Custom-Header\": \"Custom Value\"}",
             },
             {
