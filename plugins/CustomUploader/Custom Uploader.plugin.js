@@ -165,7 +165,7 @@ module.exports = (() => {
         }
         : (([Plugin, Library]) => {
             const plugin = (Plugin, Library) => {
-                const { Patcher, Modals, WebpackModules, ContextMenu, DiscordModules, Toasts} = Library;
+                const { Patcher, WebpackModules, ContextMenu, DiscordModules, Toasts } = Library;
                 const {Dispatcher, React} = DiscordModules;
                 const uploaderIcon = React.createElement("path", {
                     fill: "currentColor",
@@ -173,7 +173,7 @@ module.exports = (() => {
                 });
 
                 return class CustomUploader extends Plugin {
-                    start() {
+                    onStart() {
                         this.attachment = WebpackModules.find((m) => m.default?.displayName === "Attachment")
                         this.fileUploadMod = WebpackModules.getByProps("instantBatchUpload", "upload");
                         this.MessageUtils = WebpackModules.getByProps("sendMessage", "_sendMessage");
@@ -389,11 +389,10 @@ module.exports = (() => {
                     }
 
                     getSettingsPanel() {
-                        this.settings = BdApi.loadData("CustomUploader", "settings") || {};
                         return this.buildSettingsPanel().getElement();
                     }
 
-                    stop() {
+                    onStop() {
                         Dispatcher.unsubscribe("CHANNEL_SELECT");
                         Patcher.unpatchAll(config.info.name);
                     }
