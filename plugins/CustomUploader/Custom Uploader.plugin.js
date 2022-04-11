@@ -6,13 +6,11 @@
  * @license MIT
  * @description Allows you to upload files to your own server or another host.
  * @website https://github.com/SrS2225a
- * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/CustomUploader/Custom%20Uploader.plugin.js
+ * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js
  * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js
  */
 
-
 const request = require("request");
-const fs = require("fs");
 module.exports = (() => {
     const config = {
         info: {
@@ -23,16 +21,23 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.0.0",
+            version: "1.1.0",
             description: "Allows you to upload files to your own server or another host."
         },
         github: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins",
         github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js",
+        changelog: [
+            {
+                title: "Imporvements",
+                items: ["Added support for message attachment links."]
+            }
+        ],
+        main: "index.js",
         defaultConfig: [
             {
                 type: "switch",
-                name: "Upload using uploader service instead of discords",
                 id: "uploader",
+                name: "Upload using uploader service instead of discords",
                 value: true,
             },
             {
@@ -46,7 +51,7 @@ module.exports = (() => {
                 "name": "Headers",
                 "type": "textbox",
                 "id": "uploaderHeaders",
-                "value": "{\"Authorization\": \"<your toke here>\"}",
+                "value": "{\"Authorization\": \"<your token here>\"}",
                 "note": "The headers to use for the upload.\nExample: {\"Content-Type\": \"text/plain\", \"X-Custom-Header\": \"Custom Value\"}",
             },
             {
@@ -127,9 +132,7 @@ module.exports = (() => {
             }
         ]
     };
-    return !global.ZeresPluginLibrary
-
-        ? class {
+    return !global.ZeresPluginLibrary ? class {
             constructor() {
                 this._config = config;
             }
@@ -160,10 +163,10 @@ module.exports = (() => {
             start() {}
             stop() {}
         }
-        : (([Plugin, Api]) => {
+        : (([Plugin, Library]) => {
             const plugin = (Plugin, Library) => {
-                const { Patcher, React, Modals, WebpackModules, ContextMenu, DiscordModules, Toasts} = { ...Api, ...BdApi };
-                const {Dispatcher} = DiscordModules;
+                const { Patcher, Modals, WebpackModules, ContextMenu, DiscordModules, Toasts} = Library;
+                const {Dispatcher, React} = DiscordModules;
                 const uploaderIcon = React.createElement("path", {
                     fill: "currentColor",
                     d: "M384 352v64c0 17.67-14.33 32-32 32H96c-17.67 0-32-14.33-32-32v-64c0-17.67-14.33-32-32-32s-32 14.33-32 32v64c0 53.02 42.98 96 96 96h256c53.02 0 96-42.98 96-96v-64c0-17.67-14.33-32-32-32S384 334.3 384 352zM201.4 9.375l-128 128c-12.51 12.51-12.49 32.76 0 45.25c12.5 12.5 32.75 12.5 45.25 0L192 109.3V320c0 17.69 14.31 32 32 32s32-14.31 32-32V109.3l73.38 73.38c12.5 12.5 32.75 12.5 45.25 0s12.5-32.75 0-45.25l-128-128C234.1-3.125 213.9-3.125 201.4 9.375z",
@@ -175,10 +178,55 @@ module.exports = (() => {
                         this.fileUploadMod = WebpackModules.getByProps("instantBatchUpload", "upload");
                         this.MessageUtils = WebpackModules.getByProps("sendMessage", "_sendMessage");
                         this.draft = WebpackModules.getByProps("getDraft");
-                        Dispatcher.subscribe("CHANNEL_SELECT", this.onChannelChange);
-                        this.PatchContextMenu()
-                        this.PatchFileMessage();
-                        this.PatchFileUpload();
+                        Dispatcher.subscribe("CHANNEL_SELECT");
+                        console.log(this.settings);
+
+                        Patcher.after(
+                            config.info.name,
+                            this.attachment,
+                            "default",
+                            (_, [props], ret) => {
+                                if (ret.props?.children?.length === 0 || !ret.props.children[2]?.props?.href) {return}
+                                let button = React.createElement("svg", {
+                                    class: "downloadButton-2HLFWN",
+                                    width: "24",
+                                    height: "24",
+                                    viewBox: "-80 -80 640 640",
+                                    onClick: () => {this.upload(ret.props.children[2].props.href)}
+                                }, uploaderIcon);
+
+                                ret.props.children = [
+                                    ...ret.props.children,
+                                    button
+                                ]
+                            }
+                        )
+                        ContextMenu.getDiscordMenu("MessageContextMenu").then(menu => {
+                            Patcher.after(
+                                config.info.name,
+                                menu,
+                                "default",
+                                (_, [props], ret) => {
+                                    const url = props.message.attachments[0]?.url || props.message.embeds[0]?.image?.url || props.message.embeds[0]?.video?.url;;
+                                    if (typeof url === "undefined") {return}
+                                    ret.props.children.splice(5, 0, ContextMenu.buildMenuItem({label: "Upload File", action: () => {this.upload(url)}}, true))
+                                }
+                            )
+                        })
+                        Patcher.instead(
+                            config.info.name,
+                            this.fileUploadMod,
+                            "uploadFiles",
+                            (_, props, ret) => {
+                                const {channelId, uploads} = props[0];
+                                if (!this.settings.uploader) {
+                                    ret(...props);
+                                } else {
+                                    const draft = this.draft.getDraft(channelId, 0);
+                                    this.fileUpload(uploads, channelId, draft);
+                                }
+                            }
+                        )
                     }
 
                     async upload(url) {
@@ -189,7 +237,7 @@ module.exports = (() => {
                         const response = await request.get(url).on("data", (chunk) => {
                             data.push(Buffer.from(chunk));
                         }).on("end", () => {
-                            if (this.settings.uploaderBody === "FormData") {options.formData = {custom_file: {value: Buffer.concat(data), options: {filename: url.split('/').pop(), contentType: response.headers["content-type"]}}}}
+                            if (this.settings.uploaderBody === "FormData") {options.formData = {custom_file: {value: Buffer.concat(data), options: {filename: url.split('/').pop(), contentType: response.response.headers["content-type"]}}}}
                             else if (this.settings.uploaderBody === "FormURLEncoded") {options.form = {file: Buffer.concat(data)}}
                             else if (this.settings.uploaderBody === "JSON") {options.multipart = [{body: Buffer.concat(data),  name: 'file', content_type: 'application/json'}]}
                             else if (this.settings.uploaderBody === "XML") {options.multipart = [{body: Buffer.concat(data),  name: 'file', content_type: 'application/xml'}]}
@@ -320,8 +368,6 @@ module.exports = (() => {
                                 "default",
                                 (_, [props], ret) => {
                                     if (props.message.attachments.length === 0) {return}
-                                    const url = props.message.attachments[0].url;
-                                    console.log(url);
                                     ret.props.children.splice(5, 0, ContextMenu.buildMenuItem({label: "Upload File", action: () => {this.upload(props.message.attachments[0].url)}}));
                                 }
                             )
@@ -346,17 +392,16 @@ module.exports = (() => {
                     }
 
                     getSettingsPanel() {
-                        const panel = this.buildSettingsPanel();
-                        return panel.getElement();
+                        this.settings = BdApi.loadData("CustomUploader", "settings") || {};
+                        return this.buildSettingsPanel().getElement();
                     }
 
                     stop() {
-                        Dispatcher.unsubscribe("CHANNEL_SELECT", this.onChannelChange);
+                        Dispatcher.unsubscribe("CHANNEL_SELECT");
                         Patcher.unpatchAll(config.info.name);
                     }
                 };
-                return CustomUploader
             };
-            return plugin(Plugin, Api);
+            return plugin(Plugin, Library);
         })(global.ZeresPluginLibrary.buildPlugin(config));
 })();
