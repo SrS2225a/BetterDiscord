@@ -182,7 +182,6 @@ module.exports = (() => {
                         console.log(this.settings);
 
                         Patcher.after(
-                            config.info.name,
                             this.attachment,
                             "default",
                             (_, [props], ret) => {
@@ -203,7 +202,6 @@ module.exports = (() => {
                         )
                         ContextMenu.getDiscordMenu("MessageContextMenu").then(menu => {
                             Patcher.after(
-                                config.info.name,
                                 menu,
                                 "default",
                                 (_, [props], ret) => {
@@ -214,7 +212,6 @@ module.exports = (() => {
                             )
                         })
                         Patcher.instead(
-                            config.info.name,
                             this.fileUploadMod,
                             "uploadFiles",
                             (_, props, ret) => {
