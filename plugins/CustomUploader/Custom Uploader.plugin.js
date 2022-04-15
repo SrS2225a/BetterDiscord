@@ -28,8 +28,8 @@ module.exports = (() => {
         github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js",
         changelog: [
             {
-                title: "Imporvements",
-                items: ["Added support for message attachment links."]
+                title: "Improvements",
+                items: ["Imporved the body response parser"]
             }
         ],
         main: "index.js",
@@ -172,6 +172,74 @@ module.exports = (() => {
                     d: "M384 352v64c0 17.67-14.33 32-32 32H96c-17.67 0-32-14.33-32-32v-64c0-17.67-14.33-32-32-32s-32 14.33-32 32v64c0 53.02 42.98 96 96 96h256c53.02 0 96-42.98 96-96v-64c0-17.67-14.33-32-32-32S384 334.3 384 352zM201.4 9.375l-128 128c-12.51 12.51-12.49 32.76 0 45.25c12.5 12.5 32.75 12.5 45.25 0L192 109.3V320c0 17.69 14.31 32 32 32s32-14.31 32-32V109.3l73.38 73.38c12.5 12.5 32.75 12.5 45.25 0s12.5-32.75 0-45.25l-128-128C234.1-3.125 213.9-3.125 201.4 9.375z",
                 });
 
+                // can parse as regex, json, or xml
+                // with support for adding variables to the url or other data
+                // for example: if the response only gives back something such as {"id":"WQYX5"}, we can use https://i.imgur.com/$json:id to get the url
+                // or if we have the full url, then we can use something like $json:data.url
+                // an $ character tells the parser where the value should be expected
+                function parseURL(response, string) {
+                    console.log(response)
+                    console.log(string)
+                    const parseAs = string.split("$")
+                    const get = function (object, reference) {
+                        function arr_deref(o, ref, i) { return !ref ? o : (o[(ref.slice(0, i ? -1 : ref.length)).replace(/^['"]|['"]$/g, '')]); }
+                        function dot_deref(o, ref) { return ref.split('[').reduce(arr_deref, o || ""); }
+                        return !reference ? object : reference.split('.').reduce(dot_deref, object);
+                    };
+
+                    if (parseAs[1].startsWith("json:")) {
+                        const json = parseAs[1].split(":")[1];
+                        return parseAs[0] + get(JSON.parse(response), json);
+                    } else if (parseAs[1].startsWith("xml:")) {
+                        const xml = parseAs[1].split(":")[1];
+                        function xmlToJson(xml) {
+                            var obj = {};
+
+                            if (xml.nodeType === 1) {
+                                if (xml.attributes.length > 0) {
+                                    obj["@attributes"] = {};
+                                    for (var j = 0; j < xml.attributes.length; j++) {
+                                        var attribute = xml.attributes.item(j);
+                                        obj["@attributes"][attribute.nodeName] = attribute.nodeValue;
+                                    }
+                                }
+                            } else if (xml.nodeType === 3) {obj = xml.nodeValue;}
+
+                            if (xml.hasChildNodes()) {
+                                for (var i = 0; i < xml.childNodes.length; i++) {
+                                    var item = xml.childNodes.item(i);
+                                    var nodeName = item.nodeName;
+                                    if (item.nodeType === 3 && item.nodeValue.trim().length > 0) {
+                                        obj = item.nodeValue.trim();
+                                    } else if (item.nodeType === 1) {
+                                        if (typeof (obj[nodeName]) == "undefined") {
+                                            obj[nodeName] = xmlToJson(item);
+                                        } else {
+                                            if (typeof (obj[nodeName].push) == "undefined") {
+                                                var old = obj[nodeName];
+                                                obj[nodeName] = [];
+                                                obj[nodeName].push(old);
+                                            }
+                                            obj[nodeName].push(xmlToJson(item));
+                                        }
+                                    }
+                                }
+                            }
+                            return obj;
+                        };
+                        const xmlDoc = new DOMParser().parseFromString(response, "text/xml");
+                        return parseAs[0] + get(xmlToJson(xmlDoc), xml);
+                    } else if (parseAs[1].startsWith("regex:")) {
+                        const regex = parseAs[1].split(":")[1];
+                        const regexes = regex.split("//|");
+                        const regexesRegex = new RegExp(regexes[0], "g");
+                        const regexesMatch = regexesRegex.exec(response);
+                        return parseAs[0] + regexesMatch[parseInt(regexes[1] -1, 10) || 0];
+                    } else {
+                        return parseAs[0] + get(response, xml);
+                    }
+                }
+
                 return class CustomUploader extends Plugin {
                     onStart() {
                         this.attachment = WebpackModules.find((m) => m.default?.displayName === "Attachment")
@@ -179,7 +247,6 @@ module.exports = (() => {
                         this.MessageUtils = WebpackModules.getByProps("sendMessage", "_sendMessage");
                         this.draft = WebpackModules.getByProps("getDraft");
                         Dispatcher.subscribe("CHANNEL_SELECT");
-                        console.log(this.settings);
 
                         Patcher.after(
                             this.attachment,
@@ -251,19 +318,24 @@ module.exports = (() => {
                             console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + options.method + " " + options.url);
                             request(options, function (error, response, body) {
                                 console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + response.statusCode + " " + response.statusMessage);
+                                const url = parseURL(body, callback);
+                                console.log(url)
                                 if (response?.statusCode === 200 || response?.statusCode === 201 || response?.statusCode === 202) {
                                     // coverts a string like data.url to dot notation for the returned json
-                                    function recompose(obj, string) {
-                                        var parts = string.split('.');
-                                        var newObj = obj[parts[0]];
-                                        if (parts[1]) {
-                                            parts.splice(0, 1);
-                                            var newString = parts.join('.');
-                                            return recompose(newObj, newString);
-                                        }
-                                        return newObj;
-                                    }
-                                    let url = recompose(JSON.parse(body), callback);
+                                    // function recompose(obj, string) {
+                                    //     var parts = string.split('.');
+                                    //     var newObj = obj[parts[0]];
+                                    //     if (parts[1]) {
+                                    //         parts.splice(0, 1);
+                                    //         var newString = parts.join('.');
+                                    //         return recompose(newObj, newString);
+                                    //     }
+                                    //     return newObj;
+                                    // }
+                                    // let url = recompose(JSON.parse(body), callback);
+
+                                    // const url = parseURL(body, callback);
+                                    // console.log(url)
                                     if (url) {
                                         DiscordNative.clipboard.copy(url);
                                         Toasts.success(`File Uploaded Successfully as: ${url}. It has been copied to your clipboard.`);
@@ -302,17 +374,18 @@ module.exports = (() => {
                                     console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + response.statusCode + " " + response.statusMessage);
                                     if (response?.statusCode === 200 || response?.statusCode === 201 || response?.statusCode === 202) {
                                         // coverts a string like data.url to dot notation for the returned json
-                                        function recompose(obj, string) {
-                                            var parts = string.split('.');
-                                            var newObj = obj[parts[0]];
-                                            if (parts[1]) {
-                                                parts.splice(0, 1);
-                                                var newString = parts.join('.');
-                                                return recompose(newObj, newString);
-                                            }
-                                            return newObj;
-                                        }
-                                        let url = recompose(JSON.parse(body), callback);
+                                        // function recompose(obj, string) {
+                                        //     var parts = string.split('.');
+                                        //     var newObj = obj[parts[0]];
+                                        //     if (parts[1]) {
+                                        //         parts.splice(0, 1);
+                                        //         var newString = parts.join('.');
+                                        //         return recompose(newObj, newString);
+                                        //     }
+                                        //     return newObj;
+                                        // }
+                                        // let url = recompose(JSON.parse(body), callback);
+                                        const url = this.parseURL(body, callback)
                                         if (url) {
                                             urls.push(url);
                                         } else {
@@ -389,6 +462,7 @@ module.exports = (() => {
                     }
 
                     getSettingsPanel() {
+                        // const settings = this.buildSettingsPanel();
                         return this.buildSettingsPanel().getElement();
                     }
 
