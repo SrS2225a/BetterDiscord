@@ -1,0 +1,53 @@
+.bd-toasts, .toasts {
+    width: calc(40% - 120px)!important;
+    height: calc(100% - 20px) !important;
+    position: absolute;
+    top: initial!important;
+    left: initial!important;
+    bottom: 0px!important;
+    min-width: 170px;
+}
+
+.bd-toasts, .toasts {
+    width: calc(40% - 120px)!important;
+    height: calc(100% - 20px) !important;
+    position: absolute;
+    top: initial!important;
+    left: initial!important;
+    bottom: 0px!important;
+    min-width: 170px;
+}
+
+.bd-toasts .bd-toast {
+    padding: 40px 8px 6px 8px !important;
+    text-align: center;
+    text-indent: 8px;
+    background-size: auto;
+    background-repeat: space !important;
+    background-blend-mode: color;
+    /* add background-image: none !important if you do not want the background */
+}
+
+.bd-toasts .bd-toast::before {
+    content: "Notice From Better Discord";
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+    width: 100%;
+    min-width: 160px;
+    white-space: nowrap;
+    background: rgba(0, 0, 0, .3);
+    text-align: left !important;
+    padding: 10px 0px 10px 0px;
+}
+
+.bd-toasts {
+    right: 10px!important;
+    align-items: flex-end!important;
+}
+
+.toasts {
+    left: 10px!important;
+    align-items: flex-start!important;
+}
