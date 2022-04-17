@@ -1,0 +1,11 @@
+.inner-26JK4f:not(.wanderingCubesItem-3Us-UG) {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    background-size:cover;
+    animation:none;
+    z-index:1;
+    background-image: url("http://i.imgur.com/p543mwo.gif");
+}
+
+.wanderingCubesItem-3Us-UG {display: none}
