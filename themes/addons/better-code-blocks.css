@@ -1,3 +1,19 @@
+:root {
+  --code-block-line: block; /* Set to `none` if you do not want code blocks line gutters visable*/
+  --code-block-lang-identifer: block; /* Set to `none` if you do not want code blocks lang identifers visable*/
+  --code-block-lang-identifer-color: #191970;
+  --code-block-background: #303133;
+  --code-block-border: 2px solid gray; /* Set to `none` if you do not want a border around code blocks */
+  --hl-formula: #073642;
+  --hl-built-in: #dc322f;
+  --hl-bullet: #cb4b16;
+  --hl-attr: #b58900;
+  --hl-name: #268bd2;
+  --hl-doctag: #2aa198;
+  --hl-addition: #859900;
+}
+
+
 #app-mount .markup-eYLPri .hljs:before {
   pointer-events: none  !important;
   display: var(--code-block-lang-identifer) !important;
