@@ -1,4 +1,4 @@
-.inner-26JK4f:not(.wanderingCubesItem-3Us-UG) {
+span[class="inner-26JK4f"] {
     position: relative;
     width: 80px;
     height: 80px;
@@ -8,4 +8,4 @@
     background-image: url("http://i.imgur.com/p543mwo.gif");
 }
 
-.wanderingCubesItem-3Us-UG {display: none}
+span[class="inner-26JK4f"] > * {display: none}

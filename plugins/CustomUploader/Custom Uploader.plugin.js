@@ -21,7 +21,7 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.1.0",
+            version: "1.2.1",
             description: "Allows you to upload files to your own server or another host."
         },
         github: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins",
@@ -29,7 +29,7 @@ module.exports = (() => {
         changelog: [
             {
                 title: "Improvements",
-                items: ["Imporved the body response parser"]
+                items: ["Improved the logger."]
             }
         ],
         main: "index.js",
@@ -178,8 +178,6 @@ module.exports = (() => {
                 // or if we have the full url, then we can use something like $json:data.url
                 // an $ character tells the parser where the value should be expected
                 function parseURL(response, string) {
-                    console.log(response)
-                    console.log(string)
                     const parseAs = string.split("$")
                     const get = function (object, reference) {
                         function arr_deref(o, ref, i) { return !ref ? o : (o[(ref.slice(0, i ? -1 : ref.length)).replace(/^['"]|['"]$/g, '')]); }
@@ -298,6 +296,7 @@ module.exports = (() => {
                         let options = {}
                         // let user know that thier file is being uploaded
                         Toasts.info(`Uploading to ${this.settings.uploaderUrl} ...`);
+                        console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + this.settings.uploaderMethod + " " + this.settings.uploaderUrl);
                         const response = await request.get(url).on("data", (chunk) => {
                             data.push(Buffer.from(chunk));
                         }).on("end", () => {
@@ -315,27 +314,11 @@ module.exports = (() => {
 
 
                         function uploadData(options, callback) {
-                            console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + options.method + " " + options.url);
                             request(options, function (error, response, body) {
                                 console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + response.statusCode + " " + response.statusMessage);
-                                const url = parseURL(body, callback);
-                                console.log(url)
+                                console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " +  body.toString());
                                 if (response?.statusCode === 200 || response?.statusCode === 201 || response?.statusCode === 202) {
-                                    // coverts a string like data.url to dot notation for the returned json
-                                    // function recompose(obj, string) {
-                                    //     var parts = string.split('.');
-                                    //     var newObj = obj[parts[0]];
-                                    //     if (parts[1]) {
-                                    //         parts.splice(0, 1);
-                                    //         var newString = parts.join('.');
-                                    //         return recompose(newObj, newString);
-                                    //     }
-                                    //     return newObj;
-                                    // }
-                                    // let url = recompose(JSON.parse(body), callback);
-
-                                    // const url = parseURL(body, callback);
-                                    // console.log(url)
+                                    const url = parseURL(body, callback);
                                     if (url) {
                                         DiscordNative.clipboard.copy(url);
                                         Toasts.success(`File Uploaded Successfully as: ${url}. It has been copied to your clipboard.`);
@@ -355,6 +338,7 @@ module.exports = (() => {
                         let options = {}
                         let n = 0;
                         Toasts.info(`Uploading to ${this.settings.uploaderUrl} ...`);
+                        console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + this.settings.uploaderMethod + " " + this.settings.uploaderUrl);
                         for (const file of files) {
                             file.item.file.arrayBuffer().then(buffer => {
                                 const data = Buffer.from(buffer);
@@ -368,23 +352,11 @@ module.exports = (() => {
                                 options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
                                 options.paramaters = this.settings.uploaderParamaters ? JSON.parse(this.settings?.uploaderParamaters) : {};
                                 const callback = this.settings.uploaderResponseParser
-                                console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + options.method + " " + options.url);
                                 request(options, function (error, response, body) {
                                     n++;
                                     console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + response.statusCode + " " + response.statusMessage);
+                                    console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " +  body.toString());
                                     if (response?.statusCode === 200 || response?.statusCode === 201 || response?.statusCode === 202) {
-                                        // coverts a string like data.url to dot notation for the returned json
-                                        // function recompose(obj, string) {
-                                        //     var parts = string.split('.');
-                                        //     var newObj = obj[parts[0]];
-                                        //     if (parts[1]) {
-                                        //         parts.splice(0, 1);
-                                        //         var newString = parts.join('.');
-                                        //         return recompose(newObj, newString);
-                                        //     }
-                                        //     return newObj;
-                                        // }
-                                        // let url = recompose(JSON.parse(body), callback);
                                         const url = this.parseURL(body, callback)
                                         if (url) {
                                             urls.push(url);
