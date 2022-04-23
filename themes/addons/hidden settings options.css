@@ -1,13 +1,15 @@
-.button-12Fmur[aria-label="Mute"], .button-12Fmur[aria-label="Deafen"], .button-12Fmur[aria-label="Undeafen"], .button-12Fmur[aria-label="Unmute"]{display:none;}
-
-.container-YkUktl .flex-2S1XBF:hover {
-    flex-direction:column;
-    margin-bottom:64px;
-    z-index:1;
-    background:rgba(0,0,0,0.25);
-    border-radius:3px;
+.container-YkUktl>.flex-2S1XBF :not(:last-child) {
+    display:none;
 }
 
-.scroller-2wx7Hm, .scroller-WSmht3 {z-index: 0;}
+.container-YkUktl>.flex-2S1XBF:hover :not(:last-child) {
+    display: flex;
+}
 
-.container-YkUktl .flex-2S1XBF:hover .button-12Fmur[aria-label="Mute"], .container-YkUktl .flex-2S1XBF:hover .button-12Fmur[aria-label="Deafen"], .container-YkUktl .flex-2S1XBF:hover .button-12Fmur[aria-label="Undeafen"], .container-YkUktl .flex-2S1XBF:hover .button-12Fmur[aria-label="Unmute"] {display:block;}
+.container-YkUktl .flex-2S1XBF:hover {
+    flex-direction: column;
+    margin-bottom: 64px;
+    z-index: 1;
+    background: rgba(0,0,0,0.25);
+    border-radius: 4px;
+}
