@@ -22,7 +22,7 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.2.1",
+            version: "1.0.0",
             description: "Replaces plaintext timestamps with Discord's timestamps for accurate time no matter the timezone."
         },
         github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js",
@@ -101,106 +101,106 @@ module.exports = (() => {
         }
         : (([Plugin, Library]) => {
             const plugin = (Plugin, Library) => {
-                const { Patcher, WebpackModules, ContextMenu, DiscordModules, Toasts } = Library;
-                const {Dispatcher, React} = DiscordModules;
-
-                function ConvertDate(time) {
-                    console.log(time);
-                    if (time == null) {
-                        return "Invalid time format";
-                    } else {
-                        // can we use javascript's built in date parser? If so, just use that.
-                        let date = Date.parse(time) / 1000
-                        if (isNaN(date)) {
-                            // converts a duration as unix time. Example: "1d2h3m4s" -> 86400 + 3600 + 180 + 4 = 92484
-                            const times = time.match(/\d+\s*\w+/g);
-                            let years = 0;
-                            let months = 0;
-                            let weeks = 0;
-                            let days = 0;
-                            let hours = 0;
-                            let minutes = 0;
-                            let seconds = 0;
-                            if (times) {
-                                times.forEach(time => {
-                                    const value = time.match(/\d+/g)[0];
-                                    const label = time.match(/(?<=\s|\d)(mo|[ywdhms])/gi);
-                                    if (label !== null) {
-                                        switch (label[0]) {
-                                            case 'y':
-                                                years = value * 365 * 24 * 60 * 60;
-                                                break;
-
-                                            case 'mo':
-                                                months = value * 30 * 24 * 60 * 60;
-                                                break;
-
-                                            case 'w':
-                                                weeks = value * 7 * 24 * 60 * 60;
-                                                break;
-
-                                            case 'd':
-                                                days = value * 24 * 60 * 60;
-                                                break;
-
-                                            case 'h':
-                                                hours = value * 60 * 60;
-                                                break;
-
-                                            case 'm':
-                                                minutes = value * 60;
-                                                break;
-
-                                            case 's':
-                                                seconds = value;
-                                                break;
-                                        }
-                                    }
-                                });
-                                const result = years + months + weeks + days + hours + minutes + seconds
-                                // converts time as unix time. Example: 10:00 = 36000. Or 9:00 AM = 32400
-                                if (result === 0) {
-                                    const matchTime = time.match(/\b(24:00|2[0-3]:\d\d|[01]?\d((:\d\d)( ?(a|p)m?)?| ?(a|p)m?))\b/ig)
-                                    if (matchTime) {
-                                        const time = matchTime[0].split(':')
-                                        let hours = parseInt(time[0])
-                                        const minutes = parseInt(time[1])
-                                        const ampm = time[1]?.match(/[a|p]m?/i)
-                                        if (ampm) {
-                                            if (ampm[0].toLowerCase() === 'a' || ampm[0].toLowerCase() === 'am') {
-                                                if (hours === 12) {
-                                                    hours = 0
-                                                }
-                                            } else {
-                                                if (hours !== 12) {
-                                                    hours += 12
-                                                }
-                                            }
-                                        }
-                                        var dt = new Date();
-                                        dt.setHours(hours);
-                                        dt.setMinutes(minutes);
-                                        dt.setSeconds(0);
-                                        dt.setMilliseconds(0);
-                                        return `<t:${Math.round(dt.getTime() / 1000)}:${this.settings.prefix}>`
-                                    }
-                                } else {return `<t:${Math.round(new Date(Date.now() + result * 1000).getTime() / 1000)}:${this.settings.prefix}>`}
-                            } else {
-                                return "Invalid time format"
-                            }
-                        } else {
-                            return `<t:${date}:${this.settings.prefix}>`
-                        }
-                    }
-                }
+                const { Patcher, DiscordModules} = Library;
 
                 return class ReplaceTimestamps extends Plugin {
+                    ConvertDate(time) {
+                        // logs the gotten timestamp to the console
+                        console.log(time);
+                        if (time == null) {
+                            return "Invalid time format";
+                        } else {
+                            // can we use javascript's built in date parser? If so, just use that.
+                            let date = Date.parse(time) / 1000
+                            if (isNaN(date)) {
+                                // converts a duration as unix time. Example: "1d2h3m4s" -> 86400 + 3600 + 180 + 4 = 92484
+                                const times = time.match(/\d+\s*\w+/g);
+                                let years = 0;
+                                let months = 0;
+                                let weeks = 0;
+                                let days = 0;
+                                let hours = 0;
+                                let minutes = 0;
+                                let seconds = 0;
+                                if (times) {
+                                    times.forEach(time => {
+                                        const value = time.match(/\d+/g)[0];
+                                        const label = time.match(/(?<=\s|\d)(mo|[ywdhms])/gi);
+                                        if (label !== null) {
+                                            switch (label[0]) {
+                                                case 'y':
+                                                    years = value * 365 * 24 * 60 * 60;
+                                                    break;
+
+                                                case 'mo':
+                                                    months = value * 30 * 24 * 60 * 60;
+                                                    break;
+
+                                                case 'w':
+                                                    weeks = value * 7 * 24 * 60 * 60;
+                                                    break;
+
+                                                case 'd':
+                                                    days = value * 24 * 60 * 60;
+                                                    break;
+
+                                                case 'h':
+                                                    hours = value * 60 * 60;
+                                                    break;
+
+                                                case 'm':
+                                                    minutes = value * 60;
+                                                    break;
+
+                                                case 's':
+                                                    seconds = value;
+                                                    break;
+                                            }
+                                        }
+                                    });
+                                    const result = years + months + weeks + days + hours + minutes + seconds
+                                    // converts time as unix time. Example: 10:00 = 36000. Or 9:00 AM = 32400
+                                    if (result === 0) {
+                                        const matchTime = time.match(/\b(24:00|2[0-3]:\d\d|[01]?\d((:\d\d)( ?(a|p)m?)?| ?(a|p)m?))\b/ig)
+                                        if (matchTime) {
+                                            const time = matchTime[0].split(':')
+                                            let hours = parseInt(time[0])
+                                            const minutes = parseInt(time[1])
+                                            const ampm = time[1]?.match(/[a|p]m?/i)
+                                            if (ampm) {
+                                                if (ampm[0].toLowerCase() === 'a' || ampm[0].toLowerCase() === 'am') {
+                                                    if (hours === 12) {
+                                                        hours = 0
+                                                    }
+                                                } else {
+                                                    if (hours !== 12) {
+                                                        hours += 12
+                                                    }
+                                                }
+                                            }
+                                            var dt = new Date();
+                                            dt.setHours(hours);
+                                            dt.setMinutes(minutes);
+                                            dt.setSeconds(0);
+                                            dt.setMilliseconds(0);
+                                            return `<t:${Math.round(dt.getTime() / 1000)}:${this.settings.prefix}>`
+                                        }
+                                    } else {return `<t:${Math.round(new Date(Date.now() + result * 1000).getTime() / 1000)}:${this.settings.prefix}>`}
+                                } else {
+                                    return "Invalid time format"
+                                }
+                            } else {
+                                return `<t:${date}:${this.settings.prefix}>`
+                            }
+                        }
+                    }
+
                     onStart() {
                         Patcher.before(DiscordModules.MessageActions, "sendMessage", (props, ret) => {
                             let content = ret[1].content;
                             let regex = new RegExp(this.settings.config, "g")
                             if (regex.test(content)) {
-                                content = content.replace(regex, ConvertDate.bind(this));
+                                content = content.replace(regex, this.ConvertDate.bind(this));
                             }
                             ret[1].content = content;
                         })
@@ -211,7 +211,7 @@ module.exports = (() => {
                     }
 
                     onStop() {
-                        Patcher.unpatchAll(config.info.name);
+                        Patcher.unpatchAll();
                     }
                 };
             };
