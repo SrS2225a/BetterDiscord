@@ -6,8 +6,8 @@
  * @license MIT
  * @description Replaces plaintext timestamps with Discord's timestamps for accurate time no matter the timezone.
  * @website https://github.com/SrS2225a
- * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js
- * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js
+ * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js
+ * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js
  */
 
 
@@ -25,8 +25,8 @@ module.exports = (() => {
             version: "1.2.1",
             description: "Replaces plaintext timestamps with Discord's timestamps for accurate time no matter the timezone."
         },
-        github: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins",
-        github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js",
+        github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js",
+        github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js",
         main: "index.js",
         defaultConfig: [
             {
