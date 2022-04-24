@@ -224,7 +224,7 @@ module.exports = (() => {
                                 }
                             }
                             return obj;
-                        };
+                        }
                         const xmlDoc = new DOMParser().parseFromString(response, "text/xml");
                         return parseAs[0] + get(xmlToJson(xmlDoc), xml);
                     } else if (parseAs[1].startsWith("regex:")) {
@@ -265,6 +265,7 @@ module.exports = (() => {
                                 ]
                             }
                         )
+
                         ContextMenu.getDiscordMenu("MessageContextMenu").then(menu => {
                             Patcher.after(
                                 menu,
@@ -276,6 +277,7 @@ module.exports = (() => {
                                 }
                             )
                         })
+
                         Patcher.instead(
                             this.fileUploadMod,
                             "uploadFiles",
@@ -377,60 +379,6 @@ module.exports = (() => {
                                 message.sendMessage(channelId, {content: draft + "\n" + urls.join("\n")});
                             }
                         }
-                    }
-
-                    PatchFileMessage() {
-                        Patcher.after(
-                            config.info.name,
-                            this.attachment,
-                            "default",
-                            (_, [props], ret) => {
-                                if (ret.props?.children?.length === 0 || !ret.props.children[2]?.props?.href) {return}
-                                let button = React.createElement("svg", {
-                                    class: "downloadButton-2HLFWN",
-                                    width: "24",
-                                    height: "24",
-                                    viewBox: "-80 -80 640 640",
-                                    onClick: () => {this.upload(ret.props.children[2].props.href)}
-                                }, uploaderIcon);
-
-                                ret.props.children = [
-                                    ...ret.props.children,
-                                    button
-                                ]
-                            }
-                        )
-                    }
-
-                    PatchContextMenu() {
-                        ContextMenu.getDiscordMenu("MessageContextMenu").then(menu => {
-                            Patcher.after(
-                                config.info.name,
-                                menu,
-                                "default",
-                                (_, [props], ret) => {
-                                    if (props.message.attachments.length === 0) {return}
-                                    ret.props.children.splice(5, 0, ContextMenu.buildMenuItem({label: "Upload File", action: () => {this.upload(props.message.attachments[0].url)}}));
-                                }
-                            )
-                        })
-                    }
-
-                    PatchFileUpload() {
-                        Patcher.instead(
-                            config.info.name,
-                            this.fileUploadMod,
-                            "uploadFiles",
-                            (_, props, ret) => {
-                                const {channelId, uploads} = props[0];
-                                if (!this.settings.uploader) {
-                                    ret(...props);
-                                } else {
-                                    const draft = this.draft.getDraft(channelId, 0);
-                                    this.fileUpload(uploads, channelId, draft);
-                                }
-                            }
-                        )
                     }
 
                     getSettingsPanel() {
