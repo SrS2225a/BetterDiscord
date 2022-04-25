@@ -378,6 +378,7 @@ module.exports = (() => {
                             if (urls.length > 0) {
                                 message.sendMessage(channelId, {content: draft + "\n" + urls.join("\n")});
                             }
+                            Toasts.success(`${urls.length} Files Uploaded Successfully.`);
                         }
                     }
 
