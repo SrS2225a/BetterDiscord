@@ -21,15 +21,15 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.2.1",
+            version: "1.2.2",
             description: "Allows you to upload files to your own server or another host."
         },
         github: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins",
         github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js",
         changelog: [
             {
-                title: "Improvements",
-                items: ["Improved the logger."]
+                title: "Fixes",
+                items: ["Uploading files using attachments no longer crashes the client."]
             }
         ],
         main: "index.js",
@@ -359,7 +359,7 @@ module.exports = (() => {
                                     console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + response.statusCode + " " + response.statusMessage);
                                     console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " +  body.toString());
                                     if (response?.statusCode === 200 || response?.statusCode === 201 || response?.statusCode === 202) {
-                                        const url = this.parseURL(body, callback)
+                                        const url = parseURL(body, callback)
                                         if (url) {
                                             urls.push(url);
                                         } else {
