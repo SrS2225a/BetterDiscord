@@ -1,7 +1,7 @@
 # Custom Uploader
 
 Custom Uploader is a Better Discord plugin that allows you to upload files to your own server or another host.
-With it, you can override the default uploader with to use your own upload service, or even upload message attachments to your service on the fily.
+With it, you can override the default uploader with to use your own upload service, or even upload message attachments to your service on the fly.
 
 ![Screenshot](https://nyx.hep.gg/XI6GpRayd)
 
@@ -106,4 +106,4 @@ P.S. You need to set up your own upload service in the configuration settings. F
 - Problem: The upload service responds with an 5XX or 4XX error.
   - Solution: You may have incorrect headers, body, or other settings in your upload service. Or the upload service does not accept your specified content type. Check the upload service documentation for more information.
 
-If none of these solutions work, please contact the plugin author. You can find them on the [BetterDiscord Support Server](https://discord.com/invite/0Tmfo5ZbORCRqbAd) under the username Nyx#8614.
+If none of these solutions work, please contact the plugin author. You can find them on the [BetterDiscord Support Server](https://discord.com/invite/0Tmfo5ZbORCRqbAd) under the username Nyx#8614. Or create an issue
