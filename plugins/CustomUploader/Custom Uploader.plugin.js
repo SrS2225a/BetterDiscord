@@ -21,7 +21,7 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.2.2",
+            version: "1.2.3",
             description: "Allows you to upload files to your own server or another host."
         },
         github: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins",
@@ -29,7 +29,7 @@ module.exports = (() => {
         changelog: [
             {
                 title: "Fixes",
-                items: ["Uploading files using attachments no longer crashes the client."]
+                items: ["Uploading using the context menu now works for multiple file attachments."]
             }
         ],
         main: "index.js",
@@ -271,7 +271,7 @@ module.exports = (() => {
                                 menu,
                                 "default",
                                 (_, [props], ret) => {
-                                    const url = props.message.attachments[0]?.url || props.message.embeds[0]?.image?.url || props.message.embeds[0]?.video?.url;;
+                                    const url = props.attachment?.url;
                                     if (typeof url === "undefined") {return}
                                     ret.props.children.splice(5, 0, ContextMenu.buildMenuItem({label: "Upload File", action: () => {this.upload(url)}}, true))
                                 }
