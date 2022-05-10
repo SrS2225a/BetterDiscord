@@ -226,7 +226,7 @@ module.exports = (() => {
                                             const paramaters = [logicalOperators[i - 1], logicalOperators[i + 1]];
                                             userIds.push(Object.keys(data).filter(userId => data[userId].some(tag => tag.includes(paramaters[0] || paramaters[1]))));
                                         } else if (logicalOperators[i] === "!") {
-                                            const paramaters = [logicalOperators[i - 1]];
+                                            const paramaters = [logicalOperators[i + 1]];
                                             userIds.push(Object.keys(data).filter(userId => data[userId].some(tag => !tag.includes(paramaters[0]))));
                                         }
                                     }
