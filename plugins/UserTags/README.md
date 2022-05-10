@@ -10,7 +10,7 @@ Allows you to add custom tags to users. You can use these tags to filter users b
 
 ## Usage
 ### Searching by a tag
-To search for users with a specific tag, you can add a `&` character before the tag. For example, to search for users with the tag `admin`, you can use the following syntax: `&admin`.
+To search for users with a specific tag, you can add a `&` character before the tag. For example, to search for users with the tag `admin`, you can use the following syntax: `&admin`. This even works with logical operators such as AND (`&&`), OR (`||`), and NOT (`!`).
 ### Adding a tag
 To add a tag to a user, open the users profile and click on the `+` button. A new text input will appear where you can add the tag. Tags save automatically as you type.
 ### Removing a tag

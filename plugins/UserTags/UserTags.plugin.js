@@ -22,11 +22,20 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.0.0",
-            description: "Allows you to add custom tags to users. You can use these tags to filter users by their tags using the Quick Switcher."
+            version: "1.1.0",
+            description: "Allows you to add custom tags to users. You can use these tags to filter users by their tags."
         },
         github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/UserTags/UserTags.plugin.js",
         github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/UserTags/UserTags.plugin.js",
+        changelog: [
+            {
+                title: "Fixes",
+                items: ["Added the ablitity to add tag to user through their user profile."]
+            }, {
+                title: "Improvements",
+                items: ["Added more advanced search options. You can now search by logical operators such as AND, OR, NOT, and more."]
+            }
+        ],
         main: "index.js",
     };
     return !global.ZeresPluginLibrary ? class {
@@ -65,6 +74,7 @@ module.exports = (() => {
                 const { Patcher, WebpackModules, DiscordModules, DOMTools, PluginUtilities } = Library;
                 const {React} = DiscordModules;
                 const Roleobj = WebpackModules.find((m) => m.default?.displayName === "UserPopoutBody");
+                const Profileobj = WebpackModules.find((m) => m.default?.displayName === "UserInfoBase");
                 // const FriendsStore = WebpackModules.find((m) => m.default?.getName() === "FriendsStore");
                 // const PeopleList = WebpackModules.find((m) => m.default?.displayName === "PeopleList");
                 const QuickSwitcher = WebpackModules.find((m) => m.default?.displayName === "QuickSwitcherConnected");
@@ -76,8 +86,8 @@ module.exports = (() => {
                         let querySize = ""
 
                         function createTagPending(userId, tag = null) {
-                            const input = DOMTools.createElement("<input type='text'>");
-                            input.style.cssText = "margin: 0 5px 5px 0; padding: 0px; width: 30%; border: 1.5px solid #000; background: none; font-size: 14px; color: var(--text-color);";
+                            const input = DOMTools.createElement("<input class='.input-change-tag' type='text'>");
+                            input.style.cssText = "margin: 0 5px 5px 0; padding: 0px; width: 30%; border: 1.5px solid #000; background: none; font-size: 14px; color: #fffffa;";
                             const element = document.querySelector(".btn-add-tag");
 
                             if (tag) {
@@ -89,7 +99,7 @@ module.exports = (() => {
                                 userPopoutPatched = true
                             }
 
-                            const tagContainer = document.querySelector(".bodyInnerWrapper-2bQs1k");
+                            const tagContainer = document.querySelector(".bodyInnerWrapper-2bQs1k") || document.querySelector(".infoScroller-1QMpon");
                             input.addEventListener("input", (e) => {
                                 const data = PluginUtilities.loadData(config.info.name, "UserData");
                                 const indexOf = Object.values(tagContainer.querySelectorAll("input")).indexOf(e.target);
@@ -111,7 +121,7 @@ module.exports = (() => {
                                     const data = PluginUtilities.loadData(config.info.name, "UserData");
                                     const indexOf = Object.values(tagContainer.querySelectorAll("input")).indexOf(e.target);
                                     data[userId].splice(indexOf, 1);
-                                    if (!data.length > 0) {
+                                    if (data[userId].length === 0) {
                                         delete data[userId];
                                     }
                                     PluginUtilities.saveData(config.info.name, "UserData", data);
@@ -121,27 +131,117 @@ module.exports = (() => {
                             });
                         }
 
+                        function runTags(props, ret) {
+                            // check if the html code was already added using DOMTools
+                            if (!document.querySelector(".userTagContainer")?.children) userPopoutPatched = false;
+                            const addIcon = React.createElement("svg", {
+                                viewBox: "2 0 20 20",
+                                height: "24",
+                                width: "24",
+                                style: {
+                                    cursor: "pointer",
+                                    width: "12px",
+                                    height: "12px"
+                                }
+                            }, React.createElement("path", {
+                                fill: "currentColor",
+                                d: "M20 11.1111H12.8889V4H11.1111V11.1111H4V12.8889H11.1111V20H12.8889V12.8889H20V11.1111Z"
+                            }));
+                            const tagsHeading = React.createElement("p", {
+                                style: {
+                                    margin: "8px 0px 6px 0px",
+                                    padding: "0px",
+                                    fontSize: "14px",
+                                    color: "var(--header-secondary)",
+                                    width: "100%",
+                                    "font-weight": "700",
+                                    "font-size": "12px",
+                                    "font-family": "var(--font-display)"
+                                }
+                            }, "TAGS");
+                            let setupUSerTags = React.createElement(React.Fragment, {
+                                    key: "userTags"
+                                },
+                                React.createElement("div", {
+                                    className: "userTagContainer base-21yXnu size12-oc4dx4",
+                                    style: {
+                                        display: "flex",
+                                        flexDirection: "row",
+                                        flexWrap: "wrap",
+                                        justifyContent: "space-between",
+                                        alignItems: "center"}
+                                }, tagsHeading),
+                                React.createElement("button", {
+                                    className: "btn-add-tag",
+                                    style: {
+                                        "margin": "0 6px 6px 0",
+                                        "padding": "2px 3px",
+                                        "background-color": "#2f3136",
+                                        "color": "#ffffff",
+                                        "font-size": "12px",
+                                        "font-weight": "700",
+                                        "border": "#ffffff 2px solid",
+                                    },
+                                    onClick: () => {
+                                        createTagPending(props.user.id)
+                                    }
+                                }, addIcon)
+                            )
+
+
+                            if (!userPopoutPatched) {
+                                // loop through tags and add them to the user profile
+                                const data = PluginUtilities.loadData(config.info.name, "UserData");
+                                const userTags = data[props.user.id] || [];
+                                if (userTags.length > 0) {
+                                    for (let i = 0; i < Object.values(userTags).length; i++) {
+                                        if (userTags[i]) {
+                                            createTagPending(props.user.id, userTags[i])
+                                        }
+                                    }
+                                }
+                            }
+                            return setupUSerTags
+                        }
+
                         Patcher.after(QuickSwitcher, "default", (thisObject, args, ret) => {
-                            let query = ret.props.query;
-                            let users = ret.props.results;
+                            // use doom tools to get query instead so that the not (!) gets voided
+                            let query = document.querySelector(".input-3r5zZY")?.value;
+                            let users = ret.props.results = [];
                             if (query.startsWith("&")) {
                                 query = query.replace("&", "");
-                                if (querySize !== query) {
-                                    users = [];
-                                }
-                                querySize = query;
                                 const data = PluginUtilities.loadData(config.info.name, "UserData");
-                                const userIds = Object.keys(data).filter(userId => data[userId].some(tag => tag.includes(query)));
-                                if (userIds.length !== users.length) {
-                                    for (const id of userIds) {
-                                        const user = DiscordModules.UserStore.getUser(id)
-                                        // if (userIds.length === users.length) continue;
-                                        users.push({
-                                            comparator: user.username,
-                                            record: user,
-                                            type: "USER"
-                                        })
+                                const logicalOperators = query.split(/\s*(&&|\|\||!|\(|\))\s*/);
+                                let userIds = []
+
+                                if (logicalOperators.length === 1) {
+                                    userIds = Object.keys(data).filter(userId => data[userId].some(tag => tag.includes(query)));
+                                } else {
+                                    // adds support for logical operators such as &&, ||, and !
+                                    for (let i = 0; i < logicalOperators.length; i++) {
+                                        if (logicalOperators[i] === "&&") {
+                                            const paramaters = [logicalOperators[i - 1], logicalOperators[i + 1]];
+                                            userIds.push(Object.keys(data).filter(userId => data[userId].some(tag => tag.includes(paramaters[0] && paramaters[1]))));
+                                        } else if (logicalOperators[i] === "||") {
+                                            const paramaters = [logicalOperators[i - 1], logicalOperators[i + 1]];
+                                            userIds.push(Object.keys(data).filter(userId => data[userId].some(tag => tag.includes(paramaters[0] || paramaters[1]))));
+                                        } else if (logicalOperators[i] === "!") {
+                                            const paramaters = [logicalOperators[i - 1]];
+                                            userIds.push(Object.keys(data).filter(userId => data[userId].some(tag => !tag.includes(paramaters[0]))));
+                                        }
                                     }
+                                }
+
+                                const values = userIds.flat();
+                                for (const id of values) {
+                                    // do not add the user to the list if they are already in the list
+                                    if (users.some(user => user.record.id === id)) continue
+                                    const user = DiscordModules.UserStore.getUser(id)
+                                    users.push({
+                                        comparator: user.username,
+                                        record: user,
+                                        type: "USER"
+                                    })
                                 }
                             }
                         })
@@ -201,79 +301,18 @@ module.exports = (() => {
                         //     }
                         // })
 
+                        Patcher.after(Profileobj, "default", (thisObject, [props], ret) => {
+                            const setupUserTags = runTags(props, ret)
+                            ret.props.children.splice(1, 0,
+                                setupUserTags
+                            )
+                        })
 
                         Patcher.after(Roleobj, "default", (_, [props], ret) => {
-                            // check if the html code was already added using DOMTools
-                            if (!document.querySelector(".userTagContainer")?.children) userPopoutPatched = false;
-                            const addIcon = React.createElement("svg", {
-                                viewBox: "2 0 20 20",
-                                height: "24",
-                                width: "24",
-                                style: {
-                                    cursor: "pointer",
-                                    width: "12px",
-                                    height: "12px"
-                                }
-                            }, React.createElement("path", {
-                                fill: "currentColor",
-                                d: "M20 11.1111H12.8889V4H11.1111V11.1111H4V12.8889H11.1111V20H12.8889V12.8889H20V11.1111Z"
-                            }));
-                            const tagsHeading = React.createElement("p", {
-                                style: {
-                                    margin: "8px 0px 6px 0px",
-                                    padding: "0px",
-                                    fontSize: "14px",
-                                    color: "var(--header-secondary)",
-                                    width: "100%",
-                                    "font-weight": "700",
-                                    "font-size": "12px",
-                                    "font-family": "var(--font-display)"
-                                }
-                            }, "TAGS");
-                            let setupUSerTags = React.createElement(React.Fragment, {
-                                    key: "userTags"
-                                },
-                                React.createElement("div", {
-                                    className: "userTagContainer base-21yXnu size12-oc4dx4",
-                                    style: {
-                                        display: "flex",
-                                        flexDirection: "row",
-                                        flexWrap: "wrap",
-                                        justifyContent: "space-between",
-                                        alignItems: "center"}
-                                }, tagsHeading),
-                                React.createElement("button", {
-                                    className: "btn-add-tag",
-                                    style: {
-                                        "margin": "0 6px 6px 0",
-                                        "padding": "2px 3px",
-                                        "background-color": "#2f3136",
-                                        "color": "#ffffff",
-                                        "font-size": "12px",
-                                        "font-weight": "700",
-                                        "border": "#ffffff 2px solid",
-                                    },
-                                    onClick: () => {
-                                        createTagPending(props.user.id)
-                                    }
-                                }, addIcon)
-                            )
-
+                            const setupUserTags = runTags(props, ret)
                             ret.props.children.splice(3, 0,
-                                setupUSerTags
+                                setupUserTags
                             )
-
-
-                            if (!userPopoutPatched) {
-                                // loop through tags and add them to the user profile
-                                const data = PluginUtilities.loadData(config.info.name, "UserData");
-                                const userTags = data[props.user.id] || [];
-                                if (userTags.length > 0) {
-                                    for (let i = 0; i < Object.values(userTags).length; i++) {
-                                        createTagPending(props.user.id, userTags[i])
-                                    }
-                                }
-                            }
                         })
                     }
 
