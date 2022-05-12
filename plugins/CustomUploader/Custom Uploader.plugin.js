@@ -21,15 +21,15 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.2.3",
+            version: "1.3.0",
             description: "Allows you to upload files to your own server or another host."
         },
         github: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins",
         github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js",
         changelog: [
             {
-                title: "Fixes",
-                items: ["Uploading using the context menu now works for multiple file attachments."]
+                title: "Improvements",
+                items: ["Added support for parsing error responses from the server."]
             }
         ],
         main: "index.js",
@@ -64,8 +64,15 @@ module.exports = (() => {
                 name: "URL Response",
                 type: "textbox",
                 id: "uploaderResponseParser",
-                value: "url",
-                note: "The response to parse from the uploader.\nExample: data.url",
+                value: "$json:url",
+                note: "The response to parse from the uploader.\nExample: $json:data.url",
+            },
+            {
+                name: "Error Response",
+                type: "textbox",
+                id: "uploaderErrorParser",
+                value: "$json:error",
+                note: "The error response to parse from the uploader.\nExample: $json:error.message",
             },
             {
                 type: "dropdown",
@@ -177,9 +184,10 @@ module.exports = (() => {
                 // for example: if the response only gives back something such as {"id":"WQYX5"}, we can use https://i.imgur.com/$json:id to get the url
                 // or if we have the full url, then we can use something like $json:data.url
                 // an $ character tells the parser where the value should be expected
-                function parseURL(response, string) {
+                function parseResponse(response, string) {
                     const parseAs = string.split("$")
-                    const get = function (object, reference) {
+
+                    const fromJson = function (object, reference) {
                         function arr_deref(o, ref, i) { return !ref ? o : (o[(ref.slice(0, i ? -1 : ref.length)).replace(/^['"]|['"]$/g, '')]); }
                         function dot_deref(o, ref) { return ref.split('[').reduce(arr_deref, o || ""); }
                         return !reference ? object : reference.split('.').reduce(dot_deref, object);
@@ -187,7 +195,7 @@ module.exports = (() => {
 
                     if (parseAs[1].startsWith("json:")) {
                         const json = parseAs[1].split(":")[1];
-                        return parseAs[0] + get(JSON.parse(response), json);
+                        return parseAs[0] + fromJson(JSON.parse(response), json);
                     } else if (parseAs[1].startsWith("xml:")) {
                         const xml = parseAs[1].split(":")[1];
                         function xmlToJson(xml) {
@@ -224,9 +232,9 @@ module.exports = (() => {
                                 }
                             }
                             return obj;
-                        }
+                        };
                         const xmlDoc = new DOMParser().parseFromString(response, "text/xml");
-                        return parseAs[0] + get(xmlToJson(xmlDoc), xml);
+                        return parseAs[0] + fromJson(xmlToJson(xmlDoc), xml);
                     } else if (parseAs[1].startsWith("regex:")) {
                         const regex = parseAs[1].split(":")[1];
                         const regexes = regex.split("//|");
@@ -234,7 +242,7 @@ module.exports = (() => {
                         const regexesMatch = regexesRegex.exec(response);
                         return parseAs[0] + regexesMatch[parseInt(regexes[1] -1, 10) || 0];
                     } else {
-                        return parseAs[0] + get(response, xml);
+                        return parseAs[0] + fromJson(response, xml);
                     }
                 }
 
@@ -244,6 +252,8 @@ module.exports = (() => {
                         this.fileUploadMod = WebpackModules.getByProps("instantBatchUpload", "upload");
                         this.MessageUtils = WebpackModules.getByProps("sendMessage", "_sendMessage");
                         this.draft = WebpackModules.getByProps("getDraft");
+                        this.MiniPopover = WebpackModules.find((m) => m?.default?.displayName === "MiniPopover")
+                        this.TooltipWrapper = WebpackModules.getByPrototypes("renderTooltip")
                         Dispatcher.subscribe("CHANNEL_SELECT");
 
                         Patcher.after(
@@ -266,18 +276,50 @@ module.exports = (() => {
                             }
                         )
 
+
+                        // Patcher.after(this.MiniPopover, "default", (_, args, ret) => {
+                        //     const [{ children: {props: {children}} }] = args;
+                        //     const { type } = children[1];
+                        //     if (!type || type.__patched) return;
+                        //     children[1].type = (...args) => {
+                        //         const orignalValue = type(...args);
+                        //         const button = React.createElement(this.TooltipWrapper, {
+                        //             position: this.TooltipWrapper.Positions.TOP,
+                        //             color: this.TooltipWrapper.Colors.PRIMARY,
+                        //             text: "My button!",
+                        //             children: (tipProps) => {
+                        //                 return React.createElement(this.MiniPopover.Button, Object.assign({
+                        //                     children: [
+                        //                         BdApi.React.createElement("svg", {
+                        //                             onClick: () => console.log("Clicked"),
+                        //                             viewBox: "-80 -80 640 640",
+                        //                         }, React.createElement("path", {
+                        //                             fill: "currentColor",
+                        //                             d: "M384 352v64c0 17.67-14.33 32-32 32H96c-17.67 0-32-14.33-32-32v-64c0-17.67-14.33-32-32-32s-32 14.33-32 32v64c0 53.02 42.98 96 96 96h256c53.02 0 96-42.98 96-96v-64c0-17.67-14.33-32-32-32S384 334.3 384 352zM201.4 9.375l-128 128c-12.51 12.51-12.49 32.76 0 45.25c12.5 12.5 32.75 12.5 45.25 0L192 109.3V320c0 17.69 14.31 32 32 32s32-14.31 32-32V109.3l73.38 73.38c12.5 12.5 32.75 12.5 45.25 0s12.5-32.75 0-45.25l-128-128C234.1-3.125 213.9-3.125 201.4 9.375z",
+                        //                         }))
+                        //                     ]
+                        //                 }, tipProps))
+                        //             }
+                        //         })
+                        //         children.push(button)
+                        //         return orignalValue;
+                        //     }
+                        //     children[1].type.__patched = true;
+                        // })
+
+
                         ContextMenu.getDiscordMenu("MessageContextMenu").then(menu => {
                             Patcher.after(
                                 menu,
                                 "default",
                                 (_, [props], ret) => {
+                                    console.log(props, ret);
                                     const url = props.attachment?.url;
                                     if (typeof url === "undefined") {return}
                                     ret.props.children.splice(5, 0, ContextMenu.buildMenuItem({label: "Upload File", action: () => {this.upload(url)}}, true))
                                 }
                             )
                         })
-
                         Patcher.instead(
                             this.fileUploadMod,
                             "uploadFiles",
@@ -311,16 +353,16 @@ module.exports = (() => {
                             options.method = this.settings.uploaderMethod;
                             options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
                             options.paramaters = this.settings.uploaderParamaters ? JSON.parse(this.settings?.uploaderParamaters) : {};
-                            uploadData(options, this.settings.uploaderResponseParser)
+                            uploadData(options, this.settings?.uploaderResponseParser, this.settings.uploaderErrorParser);
                         });
 
 
-                        function uploadData(options, callback) {
+                        function uploadData(options, callback, errorCallback) {
                             request(options, function (error, response, body) {
                                 console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + response.statusCode + " " + response.statusMessage);
                                 console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " +  body.toString());
                                 if (response?.statusCode === 200 || response?.statusCode === 201 || response?.statusCode === 202) {
-                                    const url = parseURL(body, callback);
+                                    const url = parseResponse(body, callback);
                                     if (url) {
                                         DiscordNative.clipboard.copy(url);
                                         Toasts.success(`File Uploaded Successfully as: ${url}. It has been copied to your clipboard.`);
@@ -328,7 +370,7 @@ module.exports = (() => {
                                         Toasts.success(`File Uploaded Successfully.`);
                                     }
                                 } else {
-                                    Toasts.error(`Failed To Upload File: ${response?.statusMessage}`);
+                                    Toasts.error(`Failed To Upload File: ${parseResponse(body, errorCallback) || response.statusMessage}`);
                                 }
                             });
                         }
@@ -353,20 +395,21 @@ module.exports = (() => {
                                 options.method = this.settings.uploaderMethod;
                                 options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
                                 options.paramaters = this.settings.uploaderParamaters ? JSON.parse(this.settings?.uploaderParamaters) : {};
-                                const callback = this.settings.uploaderResponseParser
+                                const callback = this.settings?.uploaderResponseParser
+                                const errorCallback = this.settings?.uploaderErrorParser
                                 request(options, function (error, response, body) {
                                     n++;
                                     console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + response.statusCode + " " + response.statusMessage);
                                     console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " +  body.toString());
                                     if (response?.statusCode === 200 || response?.statusCode === 201 || response?.statusCode === 202) {
-                                        const url = parseURL(body, callback)
+                                        const url = parseResponse(body, callback)
                                         if (url) {
                                             urls.push(url);
                                         } else {
                                             urls.push(file.item.file.name);
                                         }
                                     } else {
-                                        Toasts.error(`Failed To Upload File ${n}: ${response?.statusMessage}`);
+                                        Toasts.error(`Failed To Upload File ${n}: ${parseResponse(body, errorCallback) || response?.statusMessage}`);
                                     }
                                     if (n === files.length) {
                                         after_upload(urls);

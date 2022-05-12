@@ -30,7 +30,7 @@ module.exports = (() => {
         changelog: [
             {
                 title: "Fixes",
-                items: ["Added the ablitity to add tag to user through their user profile."]
+                items: ["Added the ability to add tag to user through their user profile."]
             }, {
                 title: "Improvements",
                 items: ["Added more advanced search options. You can now search by logical operators such as AND, OR, NOT, and more."]
