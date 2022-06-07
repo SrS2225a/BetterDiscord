@@ -21,7 +21,7 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.3.0",
+            version: "1.3.1",
             description: "Allows you to upload files to your own server or another host."
         },
         github: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins",
@@ -29,7 +29,7 @@ module.exports = (() => {
         changelog: [
             {
                 title: "Improvements",
-                items: ["Added support for parsing error responses from the server."]
+                items: ["Improved the URL Parser."]
             }
         ],
         main: "index.js",
@@ -186,64 +186,76 @@ module.exports = (() => {
                 // an $ character tells the parser where the value should be expected
                 function parseResponse(response, string) {
                     const parseAs = string.split("$")
+                    const value = []
+                    for (const part of parseAs) {
+                        const fromJson = function (object, reference) {
+                            function arr_deref(o, ref, i) {
+                                return !ref ? o : (o[(ref.slice(0, i ? -1 : ref.length)).replace(/^['"]|['"]$/g, '')]);
+                            }
 
-                    const fromJson = function (object, reference) {
-                        function arr_deref(o, ref, i) { return !ref ? o : (o[(ref.slice(0, i ? -1 : ref.length)).replace(/^['"]|['"]$/g, '')]); }
-                        function dot_deref(o, ref) { return ref.split('[').reduce(arr_deref, o || ""); }
-                        return !reference ? object : reference.split('.').reduce(dot_deref, object);
-                    };
+                            function dot_deref(o, ref) {
+                                return ref.split('[').reduce(arr_deref, o || "");
+                            }
 
-                    if (parseAs[1].startsWith("json:")) {
-                        const json = parseAs[1].split(":")[1];
-                        return parseAs[0] + fromJson(JSON.parse(response), json);
-                    } else if (parseAs[1].startsWith("xml:")) {
-                        const xml = parseAs[1].split(":")[1];
-                        function xmlToJson(xml) {
-                            var obj = {};
+                            return !reference ? object : reference.split('.').reduce(dot_deref, object);
+                        };
 
-                            if (xml.nodeType === 1) {
-                                if (xml.attributes.length > 0) {
-                                    obj["@attributes"] = {};
-                                    for (var j = 0; j < xml.attributes.length; j++) {
-                                        var attribute = xml.attributes.item(j);
-                                        obj["@attributes"][attribute.nodeName] = attribute.nodeValue;
+                        if (parseAs[1].startsWith("json:")) {
+                            const json = part.split("json:")[1];
+                            value.push(fromJson(JSON.parse(response), json));
+                        } else if (parseAs[1].startsWith("xml:")) {
+                            const xml = parseAs[1].split("xml:")[1];
+
+                            function xmlToJson(xml) {
+                                var obj = {};
+
+                                if (xml.nodeType === 1) {
+                                    if (xml.attributes.length > 0) {
+                                        obj["@attributes"] = {};
+                                        for (var j = 0; j < xml.attributes.length; j++) {
+                                            var attribute = xml.attributes.item(j);
+                                            obj["@attributes"][attribute.nodeName] = attribute.nodeValue;
+                                        }
                                     }
+                                } else if (xml.nodeType === 3) {
+                                    obj = xml.nodeValue;
                                 }
-                            } else if (xml.nodeType === 3) {obj = xml.nodeValue;}
 
-                            if (xml.hasChildNodes()) {
-                                for (var i = 0; i < xml.childNodes.length; i++) {
-                                    var item = xml.childNodes.item(i);
-                                    var nodeName = item.nodeName;
-                                    if (item.nodeType === 3 && item.nodeValue.trim().length > 0) {
-                                        obj = item.nodeValue.trim();
-                                    } else if (item.nodeType === 1) {
-                                        if (typeof (obj[nodeName]) == "undefined") {
-                                            obj[nodeName] = xmlToJson(item);
-                                        } else {
-                                            if (typeof (obj[nodeName].push) == "undefined") {
-                                                var old = obj[nodeName];
-                                                obj[nodeName] = [];
-                                                obj[nodeName].push(old);
+                                if (xml.hasChildNodes()) {
+                                    for (var i = 0; i < xml.childNodes.length; i++) {
+                                        var item = xml.childNodes.item(i);
+                                        var nodeName = item.nodeName;
+                                        if (item.nodeType === 3 && item.nodeValue.trim().length > 0) {
+                                            obj = item.nodeValue.trim();
+                                        } else if (item.nodeType === 1) {
+                                            if (typeof (obj[nodeName]) == "undefined") {
+                                                obj[nodeName] = xmlToJson(item);
+                                            } else {
+                                                if (typeof (obj[nodeName].push) == "undefined") {
+                                                    var old = obj[nodeName];
+                                                    obj[nodeName] = [];
+                                                    obj[nodeName].push(old);
+                                                }
+                                                obj[nodeName].push(xmlToJson(item));
                                             }
-                                            obj[nodeName].push(xmlToJson(item));
                                         }
                                     }
                                 }
-                            }
-                            return obj;
-                        };
-                        const xmlDoc = new DOMParser().parseFromString(response, "text/xml");
-                        return parseAs[0] + fromJson(xmlToJson(xmlDoc), xml);
-                    } else if (parseAs[1].startsWith("regex:")) {
-                        const regex = parseAs[1].split(":")[1];
-                        const regexes = regex.split("//|");
-                        const regexesRegex = new RegExp(regexes[0], "g");
-                        const regexesMatch = regexesRegex.exec(response);
-                        return parseAs[0] + regexesMatch[parseInt(regexes[1] -1, 10) || 0];
-                    } else {
-                        return parseAs[0] + fromJson(response, xml);
+                                return obj;
+                            };
+                            const xmlDoc = new DOMParser().parseFromString(response, "text/xml");
+                            value.push(fromJson(xmlToJson(xmlDoc), xml));
+                        } else if (parseAs[1].startsWith("regex:")) {
+                            const regex = parseAs[1].split(":")[1];
+                            const regexes = regex.split("//|");
+                            const regexesRegex = new RegExp(regexes[0], "g");
+                            const regexesMatch = regexesRegex.exec(response);
+                           value.push(regexesMatch[parseInt(regexes[1] - 1, 10) || 0]);
+                        } else {
+                            value.push(part);
+                        }
                     }
+                    return value.join("");
                 }
 
                 return class CustomUploader extends Plugin {
