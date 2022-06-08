@@ -16,15 +16,20 @@ Additionally, the plugin has a built-in URL response parser. This allows you to 
 If the response only contains file name (or id) and would like to append it to a domain, then you can use this syntax.
 **Example:**
 ```
-https://example.com/$json:response
+https://example.com/$json:response$
 ```
 Buf if the response just contains a full URL, then you can use this syntax.
 
 **Example:**
 ```
-$json:response
+$json:response$
 ```
-Notice how we use the `$json` syntax to get the JSON object from the response. Followed by the `:response` to get the value property of the JSON object.
+Notice how we use the `$json` syntax to get the JSON object from the response. Followed by the `:response`, and a `$` sign at the end to get the value property of the JSON object.
+
+You can also combine multiple syntax's in the same url if the response is broken up into multiple parts. As an example, if the response is broken up into three parts, then you can use this syntax: 
+```
+https://example.com/$json:response.hash$/$json:response.name$.$json:response.extension$
+```
 ***
 ### json
 You can use jsonPath to parse the url from a JSON response.
@@ -40,7 +45,7 @@ You can use jsonPath to parse the url from a JSON response.
 ```
 **Syntax:**
 ```
-$json:data.link
+$json:data.link$
 ```
 **Example response 2:**
 ```json
@@ -56,7 +61,7 @@ $json:data.link
 ```
 **Syntax:**
 ```
-$json:files[0].url
+$json:files[0].url$
 ```
 ***
 ### xml
@@ -78,7 +83,7 @@ You can use jsonPath to parse the url from a XML response.
 ```
 **Syntax:**
 ```
-$xml:files.file[0].url
+$xml:files.file[0].url$
 ```
 ***
 ### regex
@@ -93,7 +98,7 @@ https://example.com/image.png
 ```
 **Syntax:**
 ```
-$regex:https:\/\/example.com\/(.*)//|1
+$regex:https:\/\/example.com\/(.*)//|1$
 ```
 ***
 P.S. You need to set up your own upload service in the configuration settings. Failure to do so or configured incorrectly will result in the plugin not uploading anything.
