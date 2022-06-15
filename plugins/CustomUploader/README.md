@@ -111,4 +111,4 @@ P.S. You need to set up your own upload service in the configuration settings. F
 - Problem: The upload service responds with an 5XX or 4XX error.
   - Solution: You may have incorrect headers, body, or other settings in your upload service. Or the upload service does not accept your specified content type. Check the upload service documentation for more information.
 
-If none of these solutions work, please contact the plugin author. You can find them on the [BetterDiscord Support Server](https://discord.com/invite/0Tmfo5ZbORCRqbAd) under the username Nyx#8614. Or create an issue
+If none of these solutions work, feel free to create a github issue.
