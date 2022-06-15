@@ -6,8 +6,8 @@
  * @license MIT
  * @description Gives you a (useless) random fact of the day each time you login to discord.
  * @website https://github.com/SrS2225a
- * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js
- * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js
+ * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js
+ * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js
  */
 
 
@@ -22,11 +22,17 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.0.0",
+            version: "1.0.1",
             description: "Gives you a (useless) random fact of the day each time you login to discord."
         },
-        github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js",
-        github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js",
+        changelog: [
+            {
+                title: "Fixes",
+                items: [`Facts now ignores markdown formatting.`]
+            }
+        ],
+        github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js",
+        github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js",
         main: "index.js",
     };
     return !global.ZeresPluginLibrary ? class {
@@ -67,10 +73,14 @@ module.exports = (() => {
                 return class ReplaceTimestamps extends Plugin {
 
                     onStart() {
+                        function ignoreMardown(str) {
+                            return str.replace(/\*|_|~|`/g, "").replace(/\n/g, " ");
+                        }
                         request.get("https://uselessfacts.jsph.pl/today.json?language=en", (error, response, body) => {
+                            console.log(body);
                             Modals.showAlertModal(
                                 "Fact of the Day",
-                                JSON.parse(body).text
+                                ignoreMardown(JSON.parse(body).text)
                             );
                         });
                     }
