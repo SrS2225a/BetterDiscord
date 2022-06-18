@@ -284,7 +284,7 @@ module.exports = (() => {
 
                         Patcher.after(this.MiniPopover, "default", (_, args, ret) => {
                             if (!(args[0].children && args[0].children.props) || ret.props.children.props.children.length > 3) return;
-                            // add toggable button for this.settings.uploader
+                            // add toggle button for this.settings.uploader
                             let button = React.createElement(this.TooltipWrapper, {
                                 position: this.TooltipWrapper.Positions.TOP,
                                 color: this.TooltipWrapper.Colors.PRIMARY,
