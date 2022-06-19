@@ -21,25 +21,39 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.3.3",
+            version: "1.3.4",
             description: "Allows you to upload files to your own server or another host."
         },
         github: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins",
         github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js",
         changelog: [
             {
-                title: "Changes",
-                items: [`Moved "upoad using uploader service" setting option to attachment buttons popover.`]
+                title: "Improvements",
+                items: [`Got rid of unnecessary method/upload body selectors`]
             }
         ],
         main: "index.js",
         defaultConfig: [
+            {
+                type: "switch",
+                id: "uploaderFormData",
+                name: "Use Form URL Encoded",
+                value: false,
+                note: "Whether to use form url encoded or form data."
+            },
             {
                 type: "textbox",
                 id: "uploaderUrl",
                 name: "URL",
                 note: "The URL to upload to.\nExample: https://example.com/upload.php",
                 value: "https://hep.gg/upload"
+            },
+            {
+                type: "textbox",
+                id: "formDataName",
+                name: "Form Data Name",
+                note: "The name of the form data field.\nExample: file",
+                value: "file"
             },
             {
                 "name": "Headers",
@@ -59,7 +73,7 @@ module.exports = (() => {
                 type: "textbox",
                 id: "uploaderResponseParser",
                 value: "$json:url",
-                note: "The response to parse from the uploader.\nExample: $json:data.url",
+                note: "The url response to parse from the uploader.\nExample: $json:data.url",
             },
             {
                 name: "Error Response",
@@ -68,69 +82,6 @@ module.exports = (() => {
                 value: "$json:error",
                 note: "The error response to parse from the uploader.\nExample: $json:error.message",
             },
-            {
-                type: "dropdown",
-                id: "uploaderMethod",
-                name: "Method",
-                note: "The method to use for the upload.",
-                value: "POST",
-                options: [
-                    {
-                        label: "POST",
-                        value: "POST"
-                    },
-                    {
-                        label: "GET",
-                        value: "GET"
-                    },
-                    {
-                        label: "PUT",
-                        value: "PUT"
-                    },
-                    {
-                        label: "PATCH",
-                        value: "PATCH"
-                    },
-                    {
-                        label: "DELETE",
-                        value: "DELETE"
-                    }
-                ]
-
-            },
-            {
-                type: "dropdown",
-                id: "uploaderBody",
-                name: "Body",
-                note: "The body to use for the upload.",
-                value: "FormData",
-                options: [
-                    {
-                        label: "No Body",
-                        value: "NoBody"
-                    },
-                    {
-                        label: "Binary",
-                        value: "Binary"
-                    },
-                    {
-                        label: "JSON",
-                        value: "JSON"
-                    },
-                    {
-                        label: "XML",
-                        value: "XML"
-                    },
-                    {
-                        label: "Form URL Encoded",
-                        value: "FormURLEncoded"
-                    },
-                    {
-                        label: "Form Data",
-                        value: "FormData"
-                    }
-                ]
-            }
         ]
     };
     return !global.ZeresPluginLibrary ? class {
@@ -235,7 +186,7 @@ module.exports = (() => {
                                     }
                                 }
                                 return obj;
-                            }
+                            };
                             const xmlDoc = new DOMParser().parseFromString(response, "text/xml");
                             values.push(fromJson(xmlToJson(xmlDoc), xml));
                         } else if (part.startsWith("regex:")) {
@@ -284,7 +235,7 @@ module.exports = (() => {
 
                         Patcher.after(this.MiniPopover, "default", (_, args, ret) => {
                             if (!(args[0].children && args[0].children.props) || ret.props.children.props.children.length > 3) return;
-                            // add toggle button for this.settings.uploader
+                            // add toggable button for this.settings.uploader
                             let button = React.createElement(this.TooltipWrapper, {
                                 position: this.TooltipWrapper.Positions.TOP,
                                 color: this.TooltipWrapper.Colors.PRIMARY,
@@ -364,17 +315,15 @@ module.exports = (() => {
                         let options = {}
                         // let user know that thier file is being uploaded
                         Toasts.info(`Uploading to ${this.settings.uploaderUrl} ...`);
-                        console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + this.settings.uploaderMethod + " " + this.settings.uploaderUrl);
+                        console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + this.settings.uploaderUrl);
                         const response = await request.get(url).on("data", (chunk) => {
                             data.push(Buffer.from(chunk));
                         }).on("end", () => {
-                            if (this.settings.uploaderBody === "FormData") {options.formData = {custom_file: {value: Buffer.concat(data), options: {filename: url.split('/').pop(), contentType: response.response.headers["content-type"]}}}}
-                            else if (this.settings.uploaderBody === "FormURLEncoded") {options.form = {file: Buffer.concat(data)}}
-                            else if (this.settings.uploaderBody === "JSON") {options.multipart = [{body: Buffer.concat(data),  name: 'file', content_type: 'application/json'}]}
-                            else if (this.settings.uploaderBody === "XML") {options.multipart = [{body: Buffer.concat(data),  name: 'file', content_type: 'application/xml'}]}
-                            else if (this.settings.uploaderBody === "Binary") {options.body = Buffer.concat(data)}
+                            const formDataName = this.settings.formDataName;
+                            if (!this.settings.uploaderFormData) {options.formData = {formDataName: {value: Buffer.concat(data), options: {filename: url.split('/').pop(), contentType: response.response.headers["content-type"]}}}}
+                            else {options.form = {formDataName: Buffer.concat(data)}}
                             options.url = this.settings.uploaderUrl;
-                            options.method = this.settings.uploaderMethod;
+                            options.method = "POST";
                             options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
                             options.paramaters = this.settings.uploaderParamaters ? JSON.parse(this.settings?.uploaderParamaters) : {};
                             uploadData(options, this.settings?.uploaderResponseParser, this.settings.uploaderErrorParser);
@@ -405,18 +354,16 @@ module.exports = (() => {
                         let urls = [];
                         let options = {}
                         let n = 0;
+                        const formDataName = this.settings.formDataName;
                         Toasts.info(`Uploading to ${this.settings.uploaderUrl} ...`);
-                        console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + this.settings.uploaderMethod + " " + this.settings.uploaderUrl);
+                        console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + this.settings.uploaderUrl);
                         for (const file of files) {
                             file.item.file.arrayBuffer().then(buffer => {
                                 const data = Buffer.from(buffer);
-                                if (this.settings.uploaderBody === "FormData") {options.formData = {custom_file: {value: data, options: {filename: file.item.file.name, contentType: file.item.file.type}}}}
-                                else if (this.settings.uploaderBody === "FormURLEncoded") {options.form = {file: Buffer.concat(data)}}
-                                else if (this.settings.uploaderBody === "JSON") {options.multipart = [{body: Buffer.concat(data),  name: 'file', content_type: 'application/json'}]}
-                                else if (this.settings.uploaderBody === "XML") {options.multipart = [{body: Buffer.concat(data),  name: 'file', content_type: 'application/xml'}]}
-                                else if (this.settings.uploaderBody === "Binary") {options.body = Buffer.concat(data)}
+                                if (!this.settings.uploaderFormData) {options.formData = {formDataName: {value: data, options: {filename: file.item.file.name, contentType: file.item.file.type}}}}
+                                else {options.form = {formDataName: data}}
                                 options.url = this.settings.uploaderUrl;
-                                options.method = this.settings.uploaderMethod;
+                                options.method = "POST";
                                 options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
                                 options.paramaters = this.settings.uploaderParamaters ? JSON.parse(this.settings?.uploaderParamaters) : {};
                                 const callback = this.settings?.uploaderResponseParser
@@ -443,14 +390,15 @@ module.exports = (() => {
                         }
                         function after_upload(urls) {
                             if (urls.length > 0) {
-                                message.sendMessage(channelId, {content: draft + "\n" + urls.join("\n")});
+                                message.sendMessage(channelId, {content: draft + "\n" + urls.join("\n"), validNonShortcutEmojis: []});
+                            } else {
+                                message.sendMessage(channelId, {content: draft, validNonShortcutEmojis: []});
                             }
                             Toasts.success(`${urls.length} Files Uploaded Successfully.`);
                         }
                     }
 
                     getSettingsPanel() {
-                        // const settings = this.buildSettingsPanel();
                         return this.buildSettingsPanel().getElement();
                     }
 
