@@ -6,8 +6,8 @@
  * @license MIT
  * @description A plugin that allows you to @someone (randomly) in a message.
  * @website https://github.com/SrS2225a
- * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js
- * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js
+ * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/AtSomeone/AtSomeone.plugin.js
+ * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/AtSomeone/AtSomeone.plugin.js
  */
 
 
