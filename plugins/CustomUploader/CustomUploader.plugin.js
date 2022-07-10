@@ -21,7 +21,7 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.3.4",
+            version: "1.4.0",
             description: "Allows you to upload files to your own server or another host."
         },
         github: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins",
@@ -29,7 +29,7 @@ module.exports = (() => {
         changelog: [
             {
                 title: "Improvements",
-                items: [`Got rid of unnecessary method/upload body selectors`]
+                items: [`Added support for body arguments`]
             }
         ],
         main: "index.js",
@@ -37,9 +37,9 @@ module.exports = (() => {
             {
                 type: "switch",
                 id: "uploaderFormData",
-                name: "Use Form URL Encoded",
+                name: "Uploader Form Data",
                 value: false,
-                note: "Whether to use form url encoded or form data."
+                note: "Whether the form data name should be used as the body argument name or not."
             },
             {
                 type: "textbox",
@@ -67,6 +67,12 @@ module.exports = (() => {
                 "type": "textbox",
                 "id": "uploaderParameters",
                 "note": "The parameters to use for the upload.\nExample: { \"param1\": \"value1\", \"param2\": \"value2\" }",
+            },
+            {
+                "name": "Body Arguments",
+                "type": "textbox",
+                "id": "uploaderBodyArguments",
+                "note": "The body arguments to use for the upload.\nExample: { \"param1\": \"value1\", \"param2\": \"value2\" }",
             },
             {
                 name: "URL Response",
@@ -320,8 +326,15 @@ module.exports = (() => {
                             data.push(Buffer.from(chunk));
                         }).on("end", () => {
                             const formDataName = this.settings.formDataName;
-                            if (!this.settings.uploaderFormData) {options.formData = {formDataName: {value: Buffer.concat(data), options: {filename: url.split('/').pop(), contentType: response.response.headers["content-type"]}}}}
-                            else {options.form = {formDataName: Buffer.concat(data)}}
+                            let bodyArguments = this.settings.uploaderBodyArguments ? JSON.parse(this.settings.uploaderBodyArguments) : {};
+                            if (!this.settings.uploaderFormData) {
+                                const formData = {[formDataName]: {value: Buffer.concat(data), options: {filename: url.split('/').pop(), contentType: response.response.headers["content-type"]}}}
+                                options.formData = {...bodyArguments, ...formData}
+                            }
+                            else {
+                                bodyArguments[formDataName] = Buffer.concat(data);
+                                options.formData = {bodyArguments, options: {filename: url.split('/').pop(), contentType: response.response.headers["content-type"]}};
+                            }
                             options.url = this.settings.uploaderUrl;
                             options.method = "POST";
                             options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
@@ -331,6 +344,7 @@ module.exports = (() => {
 
 
                         function uploadData(options, callback, errorCallback) {
+                            console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + options.url);
                             request(options, function (error, response, body) {
                                 console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + response.statusCode + " " + response.statusMessage);
                                 console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " +  body.toString());
@@ -360,8 +374,15 @@ module.exports = (() => {
                         for (const file of files) {
                             file.item.file.arrayBuffer().then(buffer => {
                                 const data = Buffer.from(buffer);
-                                if (!this.settings.uploaderFormData) {options.formData = {formDataName: {value: data, options: {filename: file.item.file.name, contentType: file.item.file.type}}}}
-                                else {options.form = {formDataName: data}}
+                                const formDataName = this.settings.formDataName;
+                                const bodyArguments = this.settings.uploaderBodyArguments ? JSON.parse(this.settings.uploaderBodyArguments) : {};
+                                if (!this.settings.uploaderFormData) {
+                                    const formData = {[formDataName]: {value: data, options: {filename: file.item.file.name, contentType: file.item.file.type}}}
+                                    options.formData = {...bodyArguments, ...formData}
+                                } else {
+                                    bodyArguments[formDataName] = data;
+                                    options.formData = {bodyArguments, options: {filename: file.item.file.name, contentType: file.item.file.type}};
+                                }
                                 options.url = this.settings.uploaderUrl;
                                 options.method = "POST";
                                 options.headers = this.settings.uploaderHeaders ? JSON.parse(this.settings?.uploaderHeaders) : {};
@@ -382,6 +403,7 @@ module.exports = (() => {
                                     } else {
                                         Toasts.error(`Failed To Upload File ${n}: ${parseResponse(body, errorCallback) || response?.statusMessage}`);
                                     }
+                                    console.log("\x1b[36m%s\x1b[0m", "[Custom Uploader] " + urls);
                                     if (n === files.length) {
                                         after_upload(urls);
                                     }
