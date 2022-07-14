@@ -6,8 +6,8 @@
  * @license MIT
  * @description Gives you a (useless) random fact of the day each time you login to discord.
  * @website https://github.com/SrS2225a
- * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js
- * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js
+ * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js
+ * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js
  */
 
 
@@ -22,18 +22,28 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.0.1",
+            version: "1.1.0",
             description: "Gives you a (useless) random fact of the day each time you login to discord."
         },
         changelog: [
             {
-                title: "Fixes",
-                items: [`Facts now ignores markdown formatting.`]
+                title: "Improvements",
+                items: [`Switched to a new personal API to get the fact of the day.`,
+                "You can now choose when you want to get a random fact of the day. Either daily or every time you login."]
             }
         ],
-        github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js",
-        github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js",
+        github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js",
+        github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js",
         main: "index.js",
+        defaultConfig: [
+            {
+                type: "switch",
+                id: "dailyRequests",
+                name: "Daily Requests",
+                value: true,
+                note: "When enabled, the plugin will only get a new fact of the day once a day. When disabled, it will get a new fact of the day every time you login."
+            }
+        ]
     };
     return !global.ZeresPluginLibrary ? class {
             constructor() {
@@ -68,21 +78,35 @@ module.exports = (() => {
         }
         : (([Plugin, Library]) => {
             const plugin = (Plugin, Library) => {
-                const { Patcher, Modals } = Library;
+                const { Patcher, Modals, PluginUtilities } = Library;
 
                 return class ReplaceTimestamps extends Plugin {
 
                     onStart() {
-                        function ignoreMardown(str) {
-                            return str.replace(/\*|_|~|`/g, "").replace(/\n/g, " ");
+                        function createRequest() {
+                            request.get("https://nyxgoddess.org/api/random-facts", (error, response, body) => {
+                                console.log("[FactOfTheDay] " + body);
+                                Modals.showAlertModal(
+                                    "Fact of the Day",
+                                    JSON.parse(body).fact + "\n\n" + JSON.parse(body).url
+                                );
+                            });
                         }
-                        request.get("https://uselessfacts.jsph.pl/today.json?language=en", (error, response, body) => {
-                            console.log(body);
-                            Modals.showAlertModal(
-                                "Fact of the Day",
-                                ignoreMardown(JSON.parse(body).text)
-                            );
-                        });
+
+                        // only make request once per day
+                        if (this.settings?.dailyRequests) {
+                            const limit = BdApi.loadData(config.info.name, "LastRequest") || 0;
+                            if (Object.entries(limit).length === 0 || Date.now() - limit > 86400000) {
+                                PluginUtilities.saveData(config.info.name, "LastRequest", Date.now().toString());
+                                createRequest()
+                            }
+                        } else {
+                            createRequest()
+                        }
+                    }
+
+                    getSettingsPanel() {
+                        return this.buildSettingsPanel().getElement();
                     }
 
                     onStop() {
