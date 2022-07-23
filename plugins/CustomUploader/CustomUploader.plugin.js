@@ -5,7 +5,7 @@
  * @version 1.0.0
  * @license MIT
  * @description Allows you to upload files to your own server or another host.
- * @website https://github.com/SrS2225a
+ * @website https://www.nyxgoddess.org/
  * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js
  * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js
  */
