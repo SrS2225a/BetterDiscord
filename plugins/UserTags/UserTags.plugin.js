@@ -5,7 +5,7 @@
  * @version 1.0.0
  * @license MIT
  * @description Allows you to add custom tags to users and search byt them.
- * @website https://github.com/SrS2225a
+ * @website https://nyxgoddess.org/
  * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/UserTags/UserTags.plugin.js
  * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/UserTags/UserTags.plugin.js
  */
@@ -22,7 +22,7 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.1.0",
+            version: "1.1.1",
             description: "Allows you to add custom tags to users. You can use these tags to filter users by their tags."
         },
         github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/UserTags/UserTags.plugin.js",
@@ -30,10 +30,7 @@ module.exports = (() => {
         changelog: [
             {
                 title: "Fixes",
-                items: ["Added the ability to add tag to user through their user profile."]
-            }, {
-                title: "Improvements",
-                items: ["Added more advanced search options. You can now search by logical operators such as AND, OR, NOT, and more."]
+                items: ["You can now mimic logical operator search in your tags by adding a '!' before the keyword.", "Made tags look more like roles"]
             }
         ],
         main: "index.js",
@@ -75,8 +72,6 @@ module.exports = (() => {
                 const {React} = DiscordModules;
                 const Roleobj = WebpackModules.find((m) => m.default?.displayName === "UserPopoutBody");
                 const Profileobj = WebpackModules.find((m) => m.default?.displayName === "UserInfoBase");
-                // const FriendsStore = WebpackModules.find((m) => m.default?.getName() === "FriendsStore");
-                // const PeopleList = WebpackModules.find((m) => m.default?.displayName === "PeopleList");
                 const QuickSwitcher = WebpackModules.find((m) => m.default?.displayName === "QuickSwitcherConnected");
 
 
@@ -86,22 +81,47 @@ module.exports = (() => {
                         let querySize = ""
 
                         function createTagPending(userId, tag = null) {
-                            const input = DOMTools.createElement("<input class='.input-change-tag' type='text'>");
-                            input.style.cssText = "margin: 0 5px 5px 0; padding: 0px; width: 30%; border: 1.5px solid #000; background: none; font-size: 14px; color: #fffffa;";
-                            const element = document.querySelector(".btn-add-tag");
+                            // TODO: Make tags look similar to roles, instead of just a text input
+                            // put div inside of div
+
+                            const div = DOMTools.createElement("<div class='user-tag-container flex-3BkGQD alignCenter-14kD11'></div>");
+                            const cancelButton = DOMTools.createElement("<div class='user-tag-cancel-button roleRemoveButton-17oXnT'></div>");
+                            const cancelButtonIcon = DOMTools.createElement("<span class='user-tag-cancel-button-icon roleCircle-3K9O3d flex-3BkGQD alignCenter-14kD11 justifyCenter-rrurWZ desaturateUserColors-1O-G89'></span>");
+                            const input = DOMTools.createElement("<input class='user-tag-input' type='text'/>");
+                            div.style.cssText = "display: flex; background-color: #292b2f; border-radius: 4px; box-sizing: border-box; width: min-content; height: 22px; margin: 0 4.2px 4.2px 0; padding: 4px;";
+                            cancelButton.style.cssText = "position: realtive; cursor: pointer;";
+                            cancelButtonIcon.style.cssText = "border-radius: 50%; width: 12px; height: 12px; background-color: rgb(185, 187, 190); margin: 0 3px; padding: 0; flex-shrink: 0;";
+                            input.style.cssText = "border-radius: 4px; border: none; background-color: #292b2f; color: #fff; width: 54px; font-size: 13px; text-overflow: ellipsis; overflow: hidden; outline: none;";
+
+                            // add div and cancel inside each other
+                            cancelButton.appendChild(cancelButtonIcon);
+                            div.appendChild(cancelButton);
+                            div.appendChild(input);
 
                             if (tag) {
                                 input.value = tag;
                             }
+
+                            const element = document.querySelector(".btn-add-tag");
                             if (element) {
-                                element.parentElement.insertBefore(input, element);
-                                input.focus();
-                                userPopoutPatched = true
+                                element.parentElement.insertBefore(div, element);
+                                userPopoutPatched = true;
                             }
+
+                            div.addEventListener("mouseover", () => {
+                                // add path element to cancelButtonIcon
+                                const path = DOMTools.createElement("<svg style='width: 10px; top: 50%; left: 50%; fill: white' aria-hidden=\"true\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><path fill=\"#2f3136\" d=\"M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z\"></path></svg>");
+                                cancelButtonIcon.appendChild(path);
+                            })
+                            div.addEventListener("mouseout", () => {
+                                // remove path element from cancelButtonIcon
+                                cancelButtonIcon.removeChild(cancelButtonIcon.lastChild);
+                            })
 
                             const tagContainer = document.querySelector(".bodyInnerWrapper-2bQs1k") || document.querySelector(".infoScroller-1QMpon");
                             input.addEventListener("input", (e) => {
                                 const data = PluginUtilities.loadData(config.info.name, "UserData");
+                                // const indexOf = Object.values(tagContainer.querySelectorAll("input")).indexOf(e.target);
                                 const indexOf = Object.values(tagContainer.querySelectorAll("input")).indexOf(e.target);
                                 // if user is not in data yet, add it
                                 if (!data[userId]) data[userId] = [];
@@ -114,10 +134,7 @@ module.exports = (() => {
                                     input.style.color = "#ffffff";
                                 }
                             });
-
-                            input.addEventListener("keydown", (e) => {
-                                // key code 8 is backspace
-                                if (e.ctrlKey && e.keyCode === 8) {
+                            cancelButton.addEventListener("click", (e) => {
                                     const data = PluginUtilities.loadData(config.info.name, "UserData");
                                     const indexOf = Object.values(tagContainer.querySelectorAll("input")).indexOf(e.target);
                                     data[userId].splice(indexOf, 1);
@@ -125,10 +142,9 @@ module.exports = (() => {
                                         delete data[userId];
                                     }
                                     PluginUtilities.saveData(config.info.name, "UserData", data);
-                                    // remove the input
-                                    input.remove();
-                                }
-                            });
+                                    // remove the div
+                                    div.remove();
+                            })
                         }
 
                         function runTags(props, ret) {
@@ -149,7 +165,7 @@ module.exports = (() => {
                             }));
                             const tagsHeading = React.createElement("p", {
                                 style: {
-                                    margin: "8px 0px 6px 0px",
+                                    marginBottom: "8px",
                                     padding: "0px",
                                     fontSize: "14px",
                                     color: "var(--header-secondary)",
@@ -171,21 +187,30 @@ module.exports = (() => {
                                         justifyContent: "space-between",
                                         alignItems: "center"}
                                 }, tagsHeading),
-                                React.createElement("button", {
+                                React.createElement("div", {
+                                    className: "userTagBody flex-3BkGQD wrap-7NZuTn",
+                                    style: {
+                                        display: "flex",
+                                        alignItems: "center",
+                                        flexWrap: "wrap",
+                                        flexDirection: "row",
+                                        marginBottom: "8px",
+                                    }
+                                }, React.createElement("button", {
                                     className: "btn-add-tag",
                                     style: {
                                         "margin": "0 6px 6px 0",
-                                        "padding": "2px 3px",
-                                        "background-color": "#2f3136",
+                                        "padding": "4px 6px",
+                                        "background-color": "#292b2f",
                                         "color": "#ffffff",
                                         "font-size": "12px",
                                         "font-weight": "700",
-                                        "border": "#ffffff 2px solid",
+                                        "border-radius": "20%",
                                     },
                                     onClick: () => {
                                         createTagPending(props.user.id)
                                     }
-                                }, addIcon)
+                                }, addIcon))
                             )
 
 
@@ -204,106 +229,60 @@ module.exports = (() => {
                             return setupUSerTags
                         }
 
+
                         Patcher.after(QuickSwitcher, "default", (thisObject, args, ret) => {
-                            // use doom tools to get query instead so that the not (!) gets voided
+                            // use dom tools to get query instead so that the not (!) does not get voided
                             let query = document.querySelector(".input-3r5zZY")?.value;
                             let users = ret.props.results = [];
                             if (query.startsWith("&")) {
-                                query = query.replace("&", "");
-                                const data = PluginUtilities.loadData(config.info.name, "UserData");
-                                const logicalOperators = query.split(/\s*(&&|\|\||!|\(|\))\s*/);
-                                let userIds = []
+                                query = query.substring(1);
+                                const keywords = query.split(" ");
+                                let data = PluginUtilities.loadData(config.info.name, "UserData");
+                                let userIds = [];
 
-                                if (logicalOperators.length === 1) {
-                                    userIds = Object.keys(data).filter(userId => data[userId].some(tag => tag.includes(query)));
-                                } else {
-                                    // adds support for logical operators such as &&, ||, and !
-                                    for (let i = 0; i < logicalOperators.length; i++) {
-                                        if (logicalOperators[i] === "&&") {
-                                            const paramaters = [logicalOperators[i - 1], logicalOperators[i + 1]];
-                                            userIds.push(Object.keys(data).filter(userId => data[userId].some(tag => tag.includes(paramaters[0] && paramaters[1]))));
-                                        } else if (logicalOperators[i] === "||") {
-                                            const paramaters = [logicalOperators[i - 1], logicalOperators[i + 1]];
-                                            userIds.push(Object.keys(data).filter(userId => data[userId].some(tag => tag.includes(paramaters[0] || paramaters[1]))));
-                                        } else if (logicalOperators[i] === "!") {
-                                            const paramaters = [logicalOperators[i + 1]];
-                                            userIds.push(Object.keys(data).filter(userId => data[userId].some(tag => !tag.includes(paramaters[0]))));
+                                // find all the users that match the tags (supports logical operators)
+                                function findUsers(keywords, data) {
+                                    if (keywords.length === 0) return;
+                                    let userIds = [];
+                                    for (let userId in data) {
+                                        let userTags = data[userId];
+                                        for (let i = 0; i < keywords.length; i++) {
+                                            // use not operator to find users that don't have the tag
+                                            if (keywords[i].startsWith("!")) {
+                                                if (!userTags.some(tag => tag.includes(keywords[i].substring(1)))) {
+                                                    userIds.push(userId);
+                                                }
+                                            } else {
+                                                if (userTags.some(tag => tag.includes(keywords[i]))) {
+                                                    userIds.push(userId);
+                                                }
+                                            }
                                         }
                                     }
+                                    return userIds;
                                 }
+                                userIds = findUsers(keywords, data);
 
-                                const values = userIds.flat();
-                                for (const id of values) {
+                                // add the users to the results
+                                for (let i = 0; i < userIds.length; i++) {
                                     // do not add the user to the list if they are already in the list
-                                    if (users.some(user => user.record.id === id)) continue
-                                    const user = DiscordModules.UserStore.getUser(id)
-                                    users.push({
-                                        comparator: user.username,
-                                        record: user,
-                                        type: "USER"
-                                    })
+                                    if (users.some(user => user.record.id === userIds[i])) continue;
+                                    let user = DiscordModules.UserStore.getUser(userIds[i]);
+                                    if (user) {
+                                        users.push({
+                                            comparator: user.username,
+                                            record: user,
+                                            type: "USER"
+                                        })
+                                    }
                                 }
                             }
                         })
 
 
-                        // Patcher.after(PeopleList,'default',(_,args,ret)=>{
-                        //     let query = ret.props.children[0].props.query
-                        //     let users = ret.props.children[2].props
-                        //     let filterUsers = ret.props.children[1].props.children.props.title
-                        //
-                        //     if (query.startsWith("&")) {
-                        //         query = query.replace("&", "");
-                        //         if (!users.statusSections) {
-                        //             users.statusSections = [[]]
-                        //         }
-                        //
-                        //         const data = PluginUtilities.loadData(config.info.name, "UserData");
-                        //         const friends = DiscordModules.RelationshipStore.getFriendIDs()
-                        //         const userIds = Object.keys(data).filter(key => data[key].some(tag => tag.includes(query)));
-                        //
-                        //         if (userIds.length > 0){
-                        //             delete users.children
-                        //             delete users.className
-                        //         }
-                        //
-                        //         function addUser(activity, status, user) {
-                        //             users.statusSections[0].push({
-                        //                 activities: activity,
-                        //                 status: status,
-                        //                 user: user
-                        //             })
-                        //         }
-                        //
-                        //         for (const id of userIds) {
-                        //             // filter out friends depending on what tab was selected
-                        //             if (filterUsers.includes("Blocked")) {
-                        //                 if (DiscordModules.RelationshipStore.isBlocked(id)) {
-                        //                     addUser(DiscordModules.UserStatusStore.getActivities(id), DiscordModules.UserStatusStore.getStatus(id), DiscordModules.UserStore.getUser(id))
-                        //                 }
-                        //             } else if (filterUsers.includes("Pending")) {
-                        //                 if (DiscordModules.RelationshipStore.isPending(id)) {
-                        //                     addUser(DiscordModules.UserStatusStore.getActivities(id), DiscordModules.UserStatusStore.getStatus(id), DiscordModules.UserStore.getUser(id))
-                        //                 }
-                        //             } else if (filterUsers.includes("Online")) {
-                        //                 if (DiscordModules.UserStatusStore.getStatus(id) !== "offline" && friends.includes(id)) {
-                        //                     addUser(DiscordModules.UserStatusStore.getActivities(id), DiscordModules.UserStatusStore.getStatus(id), DiscordModules.UserStore.getUser(id))
-                        //                 }
-                        //             } else {
-                        //                 if (friends.includes(id)) {
-                        //                     addUser(DiscordModules.UserStatusStore.getActivities(id), DiscordModules.UserStatusStore.getStatus(id), DiscordModules.UserStore.getUser(id))
-                        //                 }
-                        //             }
-                        //         }
-                        //
-                        //         // get rid of duplicates from users and userIds
-                        //         users.statusSections[0] = users.statusSections[0].filter((user, index, self) => self.findIndex(u => u.user.id === user.user.id) === index);
-                        //     }
-                        // })
-
-                        Patcher.after(Profileobj, "default", (thisObject, [props], ret) => {
+                        Patcher.after(Profileobj, "default", (_, [props], ret) => {
                             const setupUserTags = runTags(props, ret)
-                            ret.props.children.splice(1, 0,
+                            ret.props.children.splice(2, 0,
                                 setupUserTags
                             )
                         })
