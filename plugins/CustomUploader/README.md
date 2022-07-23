@@ -18,7 +18,7 @@ If the response only contains file name (or id) and would like to append it to a
 ```
 https://example.com/$json:response$
 ```
-Buf if the response just contains a full URL, then you can use this syntax.
+Or if the response contains a full URL, then you can use this syntax.
 
 **Example:**
 ```
