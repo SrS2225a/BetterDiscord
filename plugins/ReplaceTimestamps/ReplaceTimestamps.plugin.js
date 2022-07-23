@@ -5,7 +5,7 @@
  * @version 1.0.0
  * @license MIT
  * @description Replaces plaintext timestamps with Discord's timestamps for accurate time no matter the timezone.
- * @website https://github.com/SrS2225a
+ * @website https://www.nyxgoddess.org/
  * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js
  * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js
  */
