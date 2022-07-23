@@ -5,7 +5,7 @@
  * @version 1.0.0
  * @license MIT
  * @description Gives you a (useless) random fact of the day each time you login to discord.
- * @website https://github.com/SrS2225a
+ * @website https://www.nyxgoddess.org/
  * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js
  * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js
  */
