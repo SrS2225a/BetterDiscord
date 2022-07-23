@@ -5,7 +5,7 @@
  * @version 1.0.0
  * @license MIT
  * @description A plugin that allows you to @someone (randomly) in a message.
- * @website https://github.com/SrS2225a
+ * @website https://www.nyxgoddess.org/
  * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/AtSomeone/AtSomeone.plugin.js
  * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/AtSomeone/AtSomeone.plugin.js
  */
