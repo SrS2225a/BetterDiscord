@@ -5,9 +5,9 @@
  * @version 1.0.0
  * @license MIT
  * @description A plugin that allows you to @someone (randomly) in a message.
- * @website https://www.nyxgoddess.org/
- * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/AtSomeone/AtSomeone.plugin.js
- * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/AtSomeone/AtSomeone.plugin.js
+ * @website https://github.com/SrS2225a
+ * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js
+ * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js
  */
 
 
@@ -22,9 +22,15 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.0.0",
-            description: "A plugin that allows you to @someone in a message.",
+            version: "1.0.1",
+            description: "A plugin that allows you to @someone (randomly) in a message.",
         },
+        changelog: [
+            {
+                title: "Fixes",
+                items: [`Got rid of the settings button`]
+            }
+        ],
         github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js",
         github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/ReplaceTimestamps/ReplaceTimestamps.plugin.js",
         main: "index.js",
@@ -62,15 +68,14 @@ module.exports = (() => {
         }
         : (([Plugin, Library]) => {
             const plugin = (Plugin, Library) => {
-                const { Patcher, Modals, DiscordModules } = Library;
+                const { Patcher, Modals, DiscordModules, WebpackModules} = Library;
+                const MemberStore = WebpackModules.getByProps('getMembers', 'getMemberIds');
 
                 return class ReplaceTimestamps extends Plugin {
                     onStart() {
                         Patcher.before(DiscordModules.MessageActions, "sendMessage", (t,a) => {
                             let content = a[1].content.split(" ");
-                            const guild = DiscordModules.SelectedGuildStore.getLastSelectedGuildId()
                             const channel = DiscordModules.SelectedChannelStore.getChannelId()
-                            const members = DiscordModules.GuildMemberStore.getMembers(guild)
                             // check if the author is in the guild or in a dm
                             if (DiscordModules.ChannelStore.getChannel(channel).type === 1) {
                                 const dmChannel = DiscordModules.ChannelStore.getChannel(channel)
@@ -87,6 +92,8 @@ module.exports = (() => {
                                     }
                                 }
                             } else {
+                                const guild = DiscordModules.SelectedGuildStore.getLastSelectedGuildId()
+                                const members = DiscordModules.GuildMemberStore.getMembers(guild)
                                 for (let i = 0; i < content.length; i++) {
                                     if (content[i].startsWith("@someone")) {
                                         content[i] = `<@${members[Math.floor(Math.random() * members.length)].userId}>`
@@ -95,10 +102,6 @@ module.exports = (() => {
                             }
                             a[1].content = content.join(" ")
                         })
-                    }
-
-                    getSettingsPanel() {
-                        return this.buildSettingsPanel().getElement();
                     }
 
                     onStop() {
