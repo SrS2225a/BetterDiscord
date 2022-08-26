@@ -5,7 +5,7 @@
  * @version 1.0.0
  * @license MIT
  * @description Allows you to upload files to your own server or another host.
- * @website https://www.nyxgoddess.org/
+ * @website https://github.com/SrS2225a
  * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js
  * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js
  */
@@ -21,15 +21,15 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.4.0",
+            version: "1.4.1",
             description: "Allows you to upload files to your own server or another host."
         },
         github: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins",
         github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/Custom%20Uploader.plugin.js",
         changelog: [
             {
-                title: "Improvements",
-                items: [`Added support for body arguments`]
+                title: "Fixes",
+                items: [`Fix for attachment changes`]
             }
         ],
         main: "index.js",
@@ -216,25 +216,20 @@ module.exports = (() => {
                         this.draft = WebpackModules.getByProps("getDraft");
                         this.MiniPopover = WebpackModules.find((m) => m?.default?.displayName === "MiniPopover")
                         this.TooltipWrapper = WebpackModules.getByPrototypes("renderTooltip")
-                        Dispatcher.subscribe("CHANNEL_SELECT");
 
                         Patcher.after(
                             this.attachment,
                             "default",
                             (_, [props], ret) => {
-                                if (ret.props?.children?.length === 0 || !ret.props.children[2]?.props?.href) {return}
                                 let button = React.createElement("svg", {
                                     class: "downloadButton-2HLFWN",
                                     width: "24",
                                     height: "24",
                                     viewBox: "-80 -80 640 640",
-                                    onClick: () => {this.upload(ret.props.children[2].props.href)}
+                                    onClick: () => {this.upload(ret.props.children[0].props.children[3].props.href)}
                                 }, uploaderIcon);
 
-                                ret.props.children = [
-                                    ...ret.props.children,
-                                    button
-                                ]
+                                ret.props.children[0].props.children.splice(2, 0, button)
                             }
                         )
 
