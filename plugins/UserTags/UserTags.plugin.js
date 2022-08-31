@@ -22,15 +22,15 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.1.2",
+            version: "1.1.3",
             description: "Allows you to add custom tags to users. You can use these tags to filter users by their tags."
         },
         github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/UserTags/UserTags.plugin.js",
         github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/UserTags/UserTags.plugin.js",
         changelog: [
             {
-                title: "Enhancements",
-                items: ["You can now manage a user's tags in their profile.", "The width of tags automatically adjusts to the length of the tag"]
+                title: "Bug Fixes",
+                items: ["Fixed a bug where the quick switcher would break when you started typing a tag."]
             }
         ],
         main: "index.js",
@@ -222,6 +222,7 @@ module.exports = (() => {
                                 }
                             }
                         }
+
                     }
                     return setupUSerTags
                 }
@@ -231,8 +232,8 @@ module.exports = (() => {
                         Patcher.after(QuickSwitcher, "default", (thisObject, args, ret) => {
                             // use dom tools to get query instead so that the not (!) does not get voided
                             let query = document.querySelector(".input-3r5zZY")?.value;
-                            let users = ret.props.results = [];
-                            if (query.startsWith("&")) {
+                            if (query?.startsWith("&")) {
+                                let users = ret.props.results = [];
                                 query = query.substring(1);
                                 const keywords = query.split(" ");
                                 let data = PluginUtilities.loadData(config.info.name, "UserData");
@@ -274,6 +275,8 @@ module.exports = (() => {
                                         })
                                     }
                                 }
+                            } else {
+                                return ret;
                             }
                         })
 
