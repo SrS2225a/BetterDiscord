@@ -22,7 +22,7 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.1.3",
+            version: "1.2.1",
             description: "Allows you to add custom tags to users. You can use these tags to filter users by their tags."
         },
         github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/UserTags/UserTags.plugin.js",
@@ -30,7 +30,7 @@ module.exports = (() => {
         changelog: [
             {
                 title: "Bug Fixes",
-                items: ["Fixed a bug where the quick switcher would break when you started typing a tag."]
+                items: ["Search case-insensitively"]
             }
         ],
         main: "index.js",
@@ -248,11 +248,11 @@ module.exports = (() => {
                                         for (let i = 0; i < keywords.length; i++) {
                                             // use not operator to find users that don't have the tag
                                             if (keywords[i].startsWith("!")) {
-                                                if (!userTags.some(tag => tag.includes(keywords[i].substring(1)))) {
+                                                if (!userTags.some(tag => tag.toLowerCase().includes(keywords[i].substring(1).toLowerCase()))) {
                                                     userIds.push(userId);
                                                 }
                                             } else {
-                                                if (userTags.some(tag => tag.includes(keywords[i]))) {
+                                                if (userTags.some(tag => tag.toLowerCase().includes(keywords[i].toLowerCase()))) {
                                                     userIds.push(userId);
                                                 }
                                             }
