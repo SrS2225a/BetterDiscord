@@ -212,7 +212,7 @@ module.exports = (() => {
                                         await finished(json.sha256)
                                     } else {
                                         setTimeout(() => {
-                                            checkCompletion(sha256, id)
+                                            checkCompletion(json.sha256, json.id)
                                         }, 10000)
                                     }
                                 } else {
