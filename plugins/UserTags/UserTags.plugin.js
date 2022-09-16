@@ -22,19 +22,25 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.2.1",
+            version: "1.3.0",
             description: "Allows you to add custom tags to users. You can use these tags to filter users by their tags."
         },
         github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/UserTags/UserTags.plugin.js",
         github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/UserTags/UserTags.plugin.js",
         changelog: [
             {
-                title: "Bug Fixes",
-                items: ["Search case-insensitively"]
+                title: "Improvements",
+                items: ["Tags can now be moved by dragging them."]
+            }, {
+                title: "Fixes",
+                items: ["Add button now focuses the input."]
             }
         ],
         main: "index.js",
     };
+
+    // moved css to BdApi.injectCSS
+    // TODO: make tags moveable
     return !global.ZeresPluginLibrary ? class {
             constructor() {
                 this._config = config;
@@ -72,45 +78,72 @@ module.exports = (() => {
                 const {React} = DiscordModules;
                 const QuickSwitcher = WebpackModules.find((m) => m.default?.displayName === "QuickSwitcherConnected");
                 let userPopoutPatched = false
-                let querySize = ""
 
                 function createTagPending(userId, tag = null) {
-                    const div = DOMTools.createElement("<div class='user-tag-container flex-3BkGQD alignCenter-14kD11'></div>");
+                    const div = DOMTools.createElement("<div class='user-tag-container flex-3BkGQD alignCenter-14kD11' draggable='true'></div>");
                     const cancelButton = DOMTools.createElement("<div class='user-tag-cancel-button roleRemoveButton-17oXnT'></div>");
                     const cancelButtonIcon = DOMTools.createElement("<span class='user-tag-cancel-button-icon roleCircle-3K9O3d flex-3BkGQD alignCenter-14kD11 justifyCenter-rrurWZ desaturateUserColors-1O-G89'></span>");
                     const input = DOMTools.createElement("<input class='user-tag-input' type='text'/>");
-                    div.style.cssText = "display: flex; background-color: #292b2f; border-radius: 4px; box-sizing: border-box; width: min-content; height: 22px; margin: 0 4.2px 4.2px 0; padding: 4px;";
-                    cancelButton.style.cssText = "position: realtive; cursor: pointer;";
-                    cancelButtonIcon.style.cssText = "border-radius: 50%; width: 12px; height: 12px; background-color: rgb(185, 187, 190); margin: 0 3px; padding: 0; flex-shrink: 0;";
-                    input.style.cssText = "border-radius: 4px; border: none; background-color: #292b2f; color: #fff; box-sizing: border-box; font-size: 13px; overflow: hidden; outline: none; min-width: 10px; flex-grow: 1;";
 
                     // adds the correct elements each other
                     cancelButton.appendChild(cancelButtonIcon);
                     div.appendChild(cancelButton);
                     div.appendChild(input);
 
-                    // sets the tag if it is not null
-                    if (tag) {
-                        input.value = tag;
-                    }
-
                     // adds the tag to the user's tag list
                     const element = document.querySelector(".btn-add-tag");
                     if (element) {
                         element.parentElement.insertBefore(div, element);
                         userPopoutPatched = true;
+                    }
+
+                    if (tag) {
+                        // sets the input value to the tag
+                        input.value = tag;
                         input.style.width = '0';
                         input.style.width = input.scrollWidth + "px";
+                    } else {
+                        // focuses the input if the add button was clicked
+                        input.focus();
+                        input.select();
                     }
 
                     div.addEventListener("mouseover", () => {
                         // add path element to cancelButtonIcon
-                        const path = DOMTools.createElement("<svg style='width: 10px; top: 50%; left: 50%; fill: white' aria-hidden=\"true\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><path fill=\"#2f3136\" d=\"M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z\"></path></svg>");
+                        const path = DOMTools.createElement("<svg aria-hidden=\"true\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><path fill=\"#2f3136\" d=\"M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z\"></path></svg>");
                         cancelButtonIcon.appendChild(path);
                     })
                     div.addEventListener("mouseout", () => {
                         // remove path element from cancelButtonIcon
                         cancelButtonIcon.removeChild(cancelButtonIcon.lastChild);
+                    })
+
+                    // make the tag able to be moved around to change the order
+                    div.addEventListener("dragstart", (e) => {
+                        e.dataTransfer.setData("text/html", e.target.outerHTML);
+                    })
+                    div.addEventListener("dragover", (e) => {
+                        e.preventDefault();
+                    })
+                    div.addEventListener("drop", (e) => {
+                        const element = e.dataTransfer.getData("text/html");
+                        const tags = Array.prototype.slice.call(e.currentTarget.parentElement.children);
+
+                        // gets the element to move to
+                        const elementToMove = tags.find((tag) => tag.outerHTML === element);
+                        const elementToMoveIndex = Array.prototype.indexOf.call(e.currentTarget.parentElement.children, e.currentTarget) > tags.indexOf(elementToMove)
+                            ? Array.prototype.indexOf.call(e.currentTarget.parentElement.children, e.currentTarget) + 1 : Array.prototype.indexOf.call(e.currentTarget.parentElement.children, e.currentTarget); // hacky fix for the index being off by one if the element is moved right
+                        // get the element that was dropped on
+                        const referenceElement = e.currentTarget.parentElement.children[elementToMoveIndex];
+                        // move the element to the new position
+                        e.currentTarget.parentElement.insertBefore(elementToMove, referenceElement)
+
+                        // save the new order
+                        const data = PluginUtilities.loadData(config.info.name, "UserData");
+                        const tag = data[userId].find((tag) => tag === elementToMove.children[1].value);
+                        data[userId].splice(data[userId].indexOf(tag), 1);
+                        data[userId].splice(elementToMoveIndex, 0, tag);
+                        PluginUtilities.saveData(config.info.name, "UserData", data);
                     })
 
                     const tagContainer = document.querySelector(".bodyInnerWrapper-2bQs1k") || document.querySelector(".infoScroller-1QMpon");
@@ -125,11 +158,8 @@ module.exports = (() => {
                         input.value = input.value.replace(/[^a-zA-Z0-9_]/g, "");
                         data[userId][indexOf] = input.value;
                         PluginUtilities.saveData(config.info.name, "UserData", data);
-                        if (e.target.value.length > 0) {
-                            input.style.background = "#2f3136";
-                            input.style.color = "#ffffff";
-                        }
                     });
+
                     cancelButton.addEventListener("click", (e) => {
                         const data = PluginUtilities.loadData(config.info.name, "UserData");
                         const indexOf = Object.values(tagContainer.querySelectorAll(".user-tag-cancel-button-icon")).indexOf(e.target);
@@ -146,64 +176,29 @@ module.exports = (() => {
 
                 function runTags(props, ret) {
                     // check if the html code was already added using DOMTools
-                    if (!document.querySelector(".userTagContainer")?.children) userPopoutPatched = false;
+                    if (!document.querySelector(".user-tag-main")?.children) userPopoutPatched = false;
                     const addIcon = React.createElement("svg", {
                         viewBox: "2 0 20 20",
                         height: "24",
                         width: "24",
-                        style: {
-                            cursor: "pointer",
-                            width: "12px",
-                            height: "12px"
-                        }
+                        className: "user-tag-add-button-icon",
                     }, React.createElement("path", {
                         fill: "currentColor",
                         d: "M20 11.1111H12.8889V4H11.1111V11.1111H4V12.8889H11.1111V20H12.8889V12.8889H20V11.1111Z"
                     }));
-                    const tagsHeading = React.createElement("p", {
-                        style: {
-                            marginBottom: "8px",
-                            padding: "0px",
-                            fontSize: "14px",
-                            color: "var(--header-secondary)",
-                            width: "100%",
-                            "font-weight": "700",
-                            "font-size": "12px",
-                            "font-family": "var(--font-display)"
-                        }
+                    const tagsHeading = React.createElement("h3", {
+                        className: "user-tag-title"
                     }, "TAGS");
                     let setupUSerTags = React.createElement(React.Fragment, {
                             key: "userTags"
                         },
                         React.createElement("div", {
-                            className: "userTagContainer base-21yXnu size12-oc4dx4",
-                            style: {
-                                display: "flex",
-                                flexDirection: "row",
-                                flexWrap: "wrap",
-                                justifyContent: "space-between",
-                                alignItems: "center"}
+                            className: "user-tag-main base-21yXnu size12-oc4dx4",
                         }, tagsHeading),
                         React.createElement("div", {
-                            className: "userTagBody flex-3BkGQD wrap-7NZuTn",
-                            style: {
-                                display: "flex",
-                                alignItems: "center",
-                                flexWrap: "wrap",
-                                flexDirection: "row",
-                                marginBottom: "8px",
-                            }
+                            className: "user-tag-body flex-3BkGQD wrap-7NZuTn",
                         }, React.createElement("button", {
                             className: "btn-add-tag",
-                            style: {
-                                "margin": "0 6px 6px 0",
-                                "padding": "4px 6px",
-                                "background-color": "#292b2f",
-                                "color": "#ffffff",
-                                "font-size": "12px",
-                                "font-weight": "700",
-                                "border-radius": "20%",
-                            },
                             onClick: () => {
                                 createTagPending(props.user.id)
                             }
@@ -229,6 +224,78 @@ module.exports = (() => {
 
                 return class UserTags extends Plugin {
                     onStart() {
+                        BdApi.injectCSS(config.info.name, `
+                            .user-tag-container {
+                                display: flex;
+                                background-color: var(--background-secondary-alt);
+                                border-radius: 5px;
+                                padding: 4px 6px;
+                                margin: 0 4px 4px 0;
+                            }   
+                            .user-tag-input {
+                                background-color: var(--background-secondary-alt);
+                                border: none;
+                                color: var(--interactive-active);
+                                font-size: 12px;
+                                font-weight: 500;
+                                font-family: var(--font-primary);
+                                flex: 1;
+                                white-space: nowrap;
+                                padding: 0;
+                                margin: 0;
+                                width: 12px;
+                            }
+                            .user-tag-cancel-button {
+                                position: relative;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                width: 12px;
+                                height: 12px;
+                                margin-right: 4px;
+                                border-radius: 50%;
+                                padding: 0;
+                                flex-shrink: 0;
+                                background-color: rgb(185, 187, 190);
+                                cursor: pointer;
+                            }
+                           .btn-add-tag {
+                                margin: 0 4px 4px 0;
+                                padding: 4px 6px;
+                                background-color: var(--background-secondary-alt);
+                                border: none;
+                                color: var(--interactive-active);
+                                border-radius: 5px;
+                           }
+                           .user-tag-cancel-button-icon {
+                                width: 10px;
+                                top: 50%;
+                                left: 50%;
+                                fill: var(--interactive-normal);
+                           }
+                           
+                           .user-tag-body {
+                                margin-bottom: 16px;
+                           }
+                           .user-tag-main {
+                                display: block;
+                            }
+                            .user-tag-title {
+                                font-size: 12px;
+                                font-weight: 700;
+                                font-family: var(--font-display);
+                                color: var(--header-secondary);
+                                margin-bottom: 8px;
+                                width: 100%;
+                            }
+                            .user-tag-add-button-icon {
+                                width: 12px;
+                                height: 12px;
+                                fill: var(--background-primary);
+                                cursor: pointer;
+                            }
+                        `);
+
                         Patcher.after(QuickSwitcher, "default", (thisObject, args, ret) => {
                             // use dom tools to get query instead so that the not (!) does not get voided
                             let query = document.querySelector(".input-3r5zZY")?.value;
@@ -301,11 +368,10 @@ module.exports = (() => {
 
                     onStop() {
                         Patcher.unpatchAll();
+                        BdApi.clearCSS(config.info.name);
                     }
                 };
             };
             return plugin(Plugin, Library);
         })(global.ZeresPluginLibrary.buildPlugin(config));
 })();
-
-
