@@ -22,18 +22,15 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.3.0",
+            version: "1.3.1",
             description: "Allows you to add custom tags to users. You can use these tags to filter users by their tags."
         },
         github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/UserTags/UserTags.plugin.js",
         github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/UserTags/UserTags.plugin.js",
         changelog: [
             {
-                title: "Improvements",
-                items: ["Tags can now be moved by dragging them."]
-            }, {
                 title: "Fixes",
-                items: ["Add button now focuses the input."]
+                items: ["Tags no longer shift the context menu when they get too long."]
             }
         ],
         main: "index.js",
@@ -83,7 +80,7 @@ module.exports = (() => {
                     const div = DOMTools.createElement("<div class='user-tag-container flex-3BkGQD alignCenter-14kD11' draggable='true'></div>");
                     const cancelButton = DOMTools.createElement("<div class='user-tag-cancel-button roleRemoveButton-17oXnT'></div>");
                     const cancelButtonIcon = DOMTools.createElement("<span class='user-tag-cancel-button-icon roleCircle-3K9O3d flex-3BkGQD alignCenter-14kD11 justifyCenter-rrurWZ desaturateUserColors-1O-G89'></span>");
-                    const input = DOMTools.createElement("<input class='user-tag-input' type='text'/>");
+                    const input = DOMTools.createElement("<input class='user-tag-input' type='text' maxlength='60' placeholder='Tag' />");
 
                     // adds the correct elements each other
                     cancelButton.appendChild(cancelButtonIcon);
@@ -243,7 +240,8 @@ module.exports = (() => {
                                 white-space: nowrap;
                                 padding: 0;
                                 margin: 0;
-                                width: 12px;
+                                width: 10px;
+                                max-width: 250px;
                             }
                             .user-tag-cancel-button {
                                 position: relative;
