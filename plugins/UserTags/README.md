@@ -2,7 +2,7 @@
 
 Allows you to add custom tags to users. You can use these tags to filter users by their tags using the Quick Switcher.
 
-![Screenshot](https://nyx.hep.gg/Jc0GtH5h_)
+![Screenshot](https://nyx.hep.gg/nu9kz0g1U)
 
 ## Installation
 1. Download the 'UserTags.pluging.js' file
