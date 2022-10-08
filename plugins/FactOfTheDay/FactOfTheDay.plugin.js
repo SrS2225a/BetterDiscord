@@ -42,6 +42,17 @@ module.exports = (() => {
                 name: "Daily Requests",
                 value: true,
                 note: "When enabled, the plugin will only get a new fact of the day once a day. When disabled, it will get a new fact of the day every time you login."
+            },
+            {
+                type: "radio",
+                id: "requestsType",
+                name: "Request Type",
+                options: [
+                    { name: "Fact", value: "fact" },
+                    { name: "Quote", value: "quote" },
+                ],
+                note: "Choose the category of the daily message",
+                value: "fact"
             }
         ]
     };
@@ -80,18 +91,35 @@ module.exports = (() => {
             const plugin = (Plugin, Library) => {
                 const { Patcher, Modals, PluginUtilities } = Library;
 
-                return class ReplaceTimestamps extends Plugin {
+                return class FactOfTheDays extends Plugin {
 
                     onStart() {
-                        function createRequest() {
-                            request.get("https://nyxgoddess.org/api/random-facts", (error, response, body) => {
-                                console.log("[FactOfTheDay] " + body);
-                                Modals.showAlertModal(
-                                    "Fact of the Day",
-                                    JSON.parse(body).fact + "\n\n" + JSON.parse(body).url
-                                );
-                            });
-                        }
+                        const createRequest = function () {
+                            switch (this.settings?.requestsType) {
+                                case "fact":
+                                    request.get("https://nyxgoddess.org/api/random-facts", (error, response, body) => {
+                                        console.log("[FactOfTheDay] :quote:" + body);
+                                        response = JSON.parse(body);
+                                        Modals.showAlertModal(
+                                            "Fact of the Day",
+                                            `${response.fact}\n\n<${decodeURI(response.url)}>`
+                                        );
+                                    });
+                                    break;
+                                case "quote":
+                                    request.get("https://nyxgoddess.org/api/random-quotes", (error, response, body) => {
+                                        console.log("[FactOfTheDay] :fact:" + body);
+                                        response = JSON.parse(body);
+                                        Modals.showAlertModal(
+                                            "Quote of the Day",
+                                            `> ${response.quote}\n\n> --- ${response.author}`
+                                        );
+                                    });
+                                    break;
+                                default:
+                                    console.log("[FactOfTheDay] :requestsType:" + this.settings?.requestsType);
+                            }
+                        }.bind(this)
 
                         // only make request once per day
                         if (this.settings?.dailyRequests) {
