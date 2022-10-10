@@ -2,9 +2,9 @@
  * @name FactOfTheDay
  * @author Nyx
  * @authorId 270848136006729728
- * @version 1.1.0
+ * @version 1.0.0
  * @license MIT
- * @description Gives you a (useless) random fact of the day each time you login to discord.
+ * @description Gives you a (useless) random fact, or qoute of the day each time you login to discord.
  * @website https://www.nyxgoddess.org/
  * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js
  * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js
@@ -15,21 +15,21 @@ const request = require("request");
 module.exports = (() => {
     const config = {
         info: {
-            name: "FactOfTheDay",
+            name: "Qoute&FactOfTheDay",
             authors: [
                 {
                     name: "Nyx",
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.1.0",
-            description: "Gives you a (useless) random fact of the day each time you login to discord."
+            version: "1.2.0",
+            description: "Gives you a (useless) random fact, or qoute of the day each time you login to discord."
         },
         changelog: [
             {
                 title: "Improvements",
-                items: [`Switched to a new personal API to get the fact of the day.`,
-                "You can now choose when you want to get a random fact of the day. Either daily or every time you login."]
+                items: [`Plugin name change`,
+                "Added Quote of the Day"]
             }
         ],
         github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js",
