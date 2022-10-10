@@ -2,7 +2,7 @@
  * @name FactOfTheDay
  * @author Nyx
  * @authorId 270848136006729728
- * @version 1.0.0
+ * @version 1.1.0
  * @license MIT
  * @description Gives you a (useless) random fact of the day each time you login to discord.
  * @website https://www.nyxgoddess.org/
