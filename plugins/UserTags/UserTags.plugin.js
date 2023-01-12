@@ -2,7 +2,7 @@
  * @name UserTags
  * @author Nyx
  * @authorId 270848136006729728
- * @version 1.0.0
+ * @version 2.0.0
  * @license MIT
  * @description Allows you to add custom tags to users and search byt them.
  * @website https://nyxgoddess.org/
@@ -22,7 +22,7 @@ module.exports = (() => {
                     discord_id: "27048136006729728",
                 }
             ],
-            version: "1.3.1",
+            version: "2.0.0",
             description: "Allows you to add custom tags to users. You can use these tags to filter users by their tags."
         },
         github: "https://github.com/SrS2225a/BetterDiscord/blob/master/plugins/UserTags/UserTags.plugin.js",
@@ -30,14 +30,12 @@ module.exports = (() => {
         changelog: [
             {
                 title: "Fixes",
-                items: ["Tags no longer shift the context menu when they get too long."]
+                items: ["Includes fixes for discord modules changes"]
             }
         ],
         main: "index.js",
     };
 
-    // moved css to BdApi.injectCSS
-    // TODO: make tags moveable
     return !global.ZeresPluginLibrary ? class {
             constructor() {
                 this._config = config;
@@ -71,9 +69,12 @@ module.exports = (() => {
         }
         : (([Plugin, Library]) => {
             const plugin = (Plugin, Library) => {
-                const { Patcher, WebpackModules, DiscordModules, DOMTools, PluginUtilities, ContextMenu } = Library;
+
+                const { Patcher, WebpackModules, DiscordModules, DOMTools, PluginUtilities, Structs, Utilities, ReactTools } = Library;
                 const {React} = DiscordModules;
-                const QuickSwitcher = WebpackModules.find((m) => m.default?.displayName === "QuickSwitcherConnected");
+                const UserPopoutClasses = Object.assign({}, WebpackModules.getByProps("userPopout"), WebpackModules.getByProps("rolesList"), WebpackModules.getByProps("eyebrow"));
+                    const UserPopoutSelectors = {};
+                    for (const key in UserPopoutClasses) UserPopoutSelectors[key] = new Structs.Selector(UserPopoutClasses[key]);
                 let userPopoutPatched = false
 
                 function createTagPending(userId, tag = null) {
@@ -143,7 +144,7 @@ module.exports = (() => {
                         PluginUtilities.saveData(config.info.name, "UserData", data);
                     })
 
-                    const tagContainer = document.querySelector(".bodyInnerWrapper-2bQs1k") || document.querySelector(".infoScroller-1QMpon");
+                    const tagContainer = document.querySelector(".scroller-1jBQYo") || document.querySelector(".infoScroller-3MqKC5");
                     input.addEventListener("input", (e) => {
                         const data = PluginUtilities.loadData(config.info.name, "UserData");
                         const indexOf = Object.values(tagContainer.querySelectorAll(".user-tag-input")).indexOf(e.target);
@@ -171,56 +172,188 @@ module.exports = (() => {
                     })
                 }
 
-                function runTags(props, ret) {
-                    // check if the html code was already added using DOMTools
-                    if (!document.querySelector(".user-tag-main")?.children) userPopoutPatched = false;
-                    const addIcon = React.createElement("svg", {
-                        viewBox: "2 0 20 20",
-                        height: "24",
-                        width: "24",
-                        className: "user-tag-add-button-icon",
-                    }, React.createElement("path", {
-                        fill: "currentColor",
-                        d: "M20 11.1111H12.8889V4H11.1111V11.1111H4V12.8889H11.1111V20H12.8889V12.8889H20V11.1111Z"
-                    }));
-                    const tagsHeading = React.createElement("h3", {
-                        className: "user-tag-title"
-                    }, "TAGS");
-                    let setupUSerTags = React.createElement(React.Fragment, {
-                            key: "userTags"
-                        },
-                        React.createElement("div", {
-                            className: "user-tag-main base-21yXnu size12-oc4dx4",
-                        }, tagsHeading),
-                        React.createElement("div", {
-                            className: "user-tag-body flex-3BkGQD wrap-7NZuTn",
-                        }, React.createElement("button", {
-                            className: "btn-add-tag",
-                            onClick: () => {
+                let lastQuery = null;
+                var timer;
+                return class UserTags extends Plugin {
+                    timer;
+                    runTags(e) {
+                        const popoutMount = (props) => {
+                            const popout = document.querySelector(`[class*="userProfileModalInner-"], [class*="userPopoutOuter-"]`);
+                            // check if the html code was already added using DOMTools
+                            if (!document.querySelector(".user-tag-main")?.children) userPopoutPatched = false;
+                            // // use DOMTools to add the html code
+                            const addIcon = DOMTools.createElement(`<svg viewBox="2 0 20 20" height="24" width="24" class="user-tag-add-button-icon"><path fill="currentColor" d="M20 11.1111H12.8889V4H11.1111V11.1111H4V12.8889H11.1111V20H12.8889V12.8889H20V11.1111Z"></path></svg>`);
+                            const tagsHeading = DOMTools.createElement(`<h3 class="user-tag-title">TAGS</h3>`);
+                            const setupUSerTags = DOMTools.createElement(`<div class="user-tag-main"></div>`);
+                            const setupUSerTagsBody = DOMTools.createElement(`<div class="user-tag-body flex-3BkGQD wrap-7NZuTn"></div>`);
+                            const addTagButton = DOMTools.createElement(`<button class="btn-add-tag"></button>`);
+                            addTagButton.addEventListener("click", () => {
                                 createTagPending(props.user.id)
+                            })
+                            addTagButton.appendChild(addIcon);
+                            setupUSerTagsBody.appendChild(addTagButton);
+                            setupUSerTags.appendChild(tagsHeading);
+                            setupUSerTags.appendChild(setupUSerTagsBody);
+
+                            let roleList = popout.querySelector(".scroller-1jBQYo")  || popout.querySelector(".userInfoSection-1gptv0");
+                            const section = roleList.getElementsByClassName("section-3FmfOT");
+
+                            if (section.length !== 0) {
+                                roleList.insertBefore(setupUSerTags, section[section.length - 2]);
+                            } else {
+                                const section = roleList.getElementsByClassName('eyebrow-Ejf06y');
+                                roleList.insertBefore(setupUSerTags, section[section.length -1]);
+                                // add margin-bottom to user-tag-main to make it look better
+                                setupUSerTags.style.marginBottom = "16px";
+                                setupUSerTags.style.paddingTop = '0';
                             }
-                        }, addIcon))
-                    )
 
-
-                    if (!userPopoutPatched) {
-                        // loop through tags and add them to the user profile
-                        const data = PluginUtilities.loadData(config.info.name, "UserData");
-                        const userTags = data[props.user.id] || [];
-                        if (userTags.length > 0) {
-                            for (let i = 0; i < Object.values(userTags).length; i++) {
-                                if (userTags[i]) {
-                                    createTagPending(props.user.id, userTags[i])
+                            if (!userPopoutPatched) {
+                                // loop through tags and add them to the user profile
+                                const data = PluginUtilities.loadData(config.info.name, "UserData");
+                                const userTags = data[props.user.id] || [];
+                                if (userTags.length > 0) {
+                                    for (let i = 0; i < Object.values(userTags).length; i++) {
+                                        if (userTags[i]) {
+                                            createTagPending(props.user.id, userTags[i])
+                                        }
+                                    }
                                 }
                             }
+
+                            const popoutInstance = ReactTools.getOwnerInstance(popout, {include: ["Popout"]});
+                            if (!popoutInstance || !popoutInstance.updateOffsets) return;
+                            popoutInstance.updateOffsets();
                         }
 
-                    }
-                    return setupUSerTags
-                }
+                        // wrap in function to prevent errors
+                        function tags() {
+                            if (!e.addedNodes.length || !(e.addedNodes[0] instanceof Element)) return;
+                            const element = e.addedNodes[0];
+                            const popout = element.querySelector(`[class*="userProfileModalInner-"], [class*="userPopoutOuter-"]`) ?? element;
+                            if (!popout || !popout.matches(`[class*="userProfileModalInner-"], [class*="userPopoutOuter-"], [class*="infoScroller-"]`)) return;
+                            const props = Utilities.findInTree(ReactTools.getReactInstance(popout), m => m && m.user, {walkable: ["return", "memoizedProps"]});
+                            popoutMount(props);
+                        }
 
-                return class UserTags extends Plugin {
+                        function searchState () {
+                            const getInstance = function (element, filter = () => true) {
+                                let fiber = BdApi.getInternalInstance(element);
+
+                                while (fiber && (!(fiber.stateNode instanceof BdApi.React.Component) || !filter(fiber.stateNode))) {
+                                    fiber = fiber.return;
+                                }
+
+                                return fiber?.stateNode;
+                            };
+
+
+                            if (!e.addedNodes.length || !(e.addedNodes[0] instanceof Element)) return;
+                            const element = e.addedNodes[0];
+                            const quickSwitcher = document.querySelector(".focusLock-2tveLW") ?? element;
+                            if (!element.querySelector(`.quickswitcher-pKcM9U`) || !element.querySelector(`[class*="quickswitcher-"]`).matches(`.quickswitcher-pKcM9U`)) return;
+                            const quickSwitcherInstance = ReactTools.getOwnerInstance(quickSwitcher)
+
+                            // important!: we force update the quickswitcher like this in a timer and event listener because the quickswitcher is not an exposed discord internal, so we can't use the discord internal functions to update it
+                            // this timer is used because the quickswitcher send its results seemingly at random
+                            quickSwitcher?.addEventListener("mousemove", () => {
+                                const nodes = Array.from(document.getElementsByClassName("quickswitcher-pKcM9U"));
+                                for (const node of nodes) getInstance(node)?.forceUpdate();
+                            });
+                            if (quickSwitcher) {
+                                const input = document.querySelector(".input-3r5zZY")
+                                if (input) {
+                                    input.addEventListener("input", (e) => {
+                                        const query = e.target.value;
+                                        if (lastQuery === query) return;
+                                        lastQuery = query;
+                                        if (query.startsWith("&")) {
+                                            if(!timer) {
+                                                timer = setInterval(() => {
+                                                    const nodes = Array.from(document.getElementsByClassName("quickswitcher-pKcM9U"));
+                                                    for (const node of nodes) getInstance(node)?.forceUpdate();
+                                                }, 500)
+                                            }
+                                        } else {
+                                            // remove the event listener
+                                            clearInterval(timer)
+                                            timer = null;
+                                        }
+                                    })
+                                }
+                            } else {
+                                clearInterval(timer)
+                                timer = null;
+                            }
+
+                            Patcher.after(quickSwitcherInstance.constructor.prototype, "render", (object, props, ret) => {
+                                const property = ret._owner.memoizedProps;
+                                let query = property?.query || "";
+
+                                if (query?.startsWith("&")) {
+                                    property.results = [];
+                                    let users = property.results = [];
+                                    query = query.substring(1);
+                                    const keywords = query.split(" ");
+                                    let data = PluginUtilities.loadData(config.info.name, "UserData");
+                                    let userIds = [];
+
+                                    function findUsers(keywords, data) {
+                                        if (keywords.length === 0) return;
+                                        let userIds = [];
+                                        for (let userId in data) {
+                                            let userTags = data[userId];
+                                            for (let i = 0; i < keywords.length; i++) {
+                                                // use not operator to find users that don't have the tag
+                                                if (keywords[i].startsWith("!")) {
+                                                    if (!userTags.some(tag => tag.toLowerCase().includes(keywords[i].substring(1).toLowerCase()))) {
+                                                        userIds.push(userId);
+                                                    }
+                                                } else {
+                                                    if (userTags.some(tag => tag.toLowerCase().includes(keywords[i].toLowerCase()))) {
+                                                        userIds.push(userId);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        return userIds;
+                                    }
+                                    userIds = findUsers(keywords, data);
+
+                                    // add the users to the results
+                                    for (let i = 0; i < userIds.length; i++) {
+                                        // do not add the user to the list if they are already in the list
+                                        if (users.some(user => user.record.id === userIds[i])) continue;
+                                        let user = DiscordModules.UserStore.getUser(userIds[i]);
+                                        if (user) {
+                                            users.push({
+                                                comparator: user.username,
+                                                record: user,
+                                                score: 0,
+                                                type: "USER"
+                                            })
+                                        }
+                                    }
+                                    // update the results
+                                    property.results = users;
+                                }
+                            });
+
+                        }
+
+                        tags()
+                        searchState()
+                    }
+
+                    bindPopouts() {
+                        this.observer = this.runTags.bind(this);
+                    }
+                    unbindPopouts() {
+                        this.observer = undefined;
+                    }
+
                     onStart() {
+                        this.bindPopouts()
                         BdApi.injectCSS(config.info.name, `
                             .user-tag-container {
                                 display: flex;
@@ -228,7 +361,7 @@ module.exports = (() => {
                                 border-radius: 5px;
                                 padding: 4px 6px;
                                 margin: 0 4px 4px 0;
-                            }   
+                            }
                             .user-tag-input {
                                 background-color: var(--background-secondary-alt);
                                 border: none;
@@ -271,18 +404,19 @@ module.exports = (() => {
                                 left: 50%;
                                 fill: var(--interactive-normal);
                            }
-                           
+
                            .user-tag-body {
-                                margin-bottom: 16px;
+                                margin-bottom: 4px;
                            }
                            .user-tag-main {
                                 display: block;
+                                padding-top: 12px;
                             }
                             .user-tag-title {
                                 font-size: 12px;
                                 font-weight: 700;
                                 font-family: var(--font-display);
-                                color: var(--header-secondary);
+                                color: var(--header-primary);
                                 margin-bottom: 8px;
                                 width: 100%;
                             }
@@ -293,78 +427,10 @@ module.exports = (() => {
                                 cursor: pointer;
                             }
                         `);
-
-                        Patcher.after(QuickSwitcher, "default", (thisObject, args, ret) => {
-                            // use dom tools to get query instead so that the not (!) does not get voided
-                            let query = document.querySelector(".input-3r5zZY")?.value;
-                            if (query?.startsWith("&")) {
-                                let users = ret.props.results = [];
-                                query = query.substring(1);
-                                const keywords = query.split(" ");
-                                let data = PluginUtilities.loadData(config.info.name, "UserData");
-                                let userIds = [];
-
-                                // find all the users that match the tags
-                                function findUsers(keywords, data) {
-                                    if (keywords.length === 0) return;
-                                    let userIds = [];
-                                    for (let userId in data) {
-                                        let userTags = data[userId];
-                                        for (let i = 0; i < keywords.length; i++) {
-                                            // use not operator to find users that don't have the tag
-                                            if (keywords[i].startsWith("!")) {
-                                                if (!userTags.some(tag => tag.toLowerCase().includes(keywords[i].substring(1).toLowerCase()))) {
-                                                    userIds.push(userId);
-                                                }
-                                            } else {
-                                                if (userTags.some(tag => tag.toLowerCase().includes(keywords[i].toLowerCase()))) {
-                                                    userIds.push(userId);
-                                                }
-                                            }
-                                        }
-                                    }
-                                    return userIds;
-                                }
-                                userIds = findUsers(keywords, data);
-
-                                // add the users to the results
-                                for (let i = 0; i < userIds.length; i++) {
-                                    // do not add the user to the list if they are already in the list
-                                    if (users.some(user => user.record.id === userIds[i])) continue;
-                                    let user = DiscordModules.UserStore.getUser(userIds[i]);
-                                    if (user) {
-                                        users.push({
-                                            comparator: user.username,
-                                            record: user,
-                                            type: "USER"
-                                        })
-                                    }
-                                }
-                            } else {
-                                return ret;
-                            }
-                        })
-
-                        ContextMenu.getDiscordMenu("UserInfoBase").then(m => {
-                            Patcher.after(m, "default", (_, [props], ret) => {
-                                const setupUserTags = runTags(props, ret)
-                                ret.props.children[0].props.children.splice(2, 0,
-                                    setupUserTags
-                                )
-                            })
-                        });
-
-                        ContextMenu.getDiscordMenu("UserPopoutBody").then(m => {
-                            Patcher.after(m, "default", (_, [props], ret) => {
-                                const setupUserTags = runTags(props, ret)
-                                ret.props.children.splice(3, 0,
-                                    setupUserTags
-                                )
-                            })
-                        });
                     }
 
                     onStop() {
+                        this.unbindPopouts()
                         Patcher.unpatchAll();
                         BdApi.clearCSS(config.info.name);
                     }
