@@ -5,7 +5,7 @@ Allows you to add custom tags to users. You can use these tags to filter users b
 ![Screenshot](https://nyx.hep.gg/nu9kz0g1U)
 
 ## Installation
-1. Download the 'UserTags.pluging.js' file
+1. Download the 'UserTags.plugin.js' file
 2. Add it to your Better Discord plugins folder
 
 ## Usage
