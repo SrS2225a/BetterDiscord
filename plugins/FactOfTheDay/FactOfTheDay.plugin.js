@@ -50,6 +50,7 @@ module.exports = (() => {
                 options: [
                     { name: "Fact", value: "fact" },
                     { name: "Quote", value: "quote" },
+                    { name: "Joke", value: "joke" },
                 ],
                 note: "Choose the category of the daily message",
                 value: "fact"
@@ -113,6 +114,19 @@ module.exports = (() => {
                                         Modals.showAlertModal(
                                             "Quote of the Day",
                                             `> ${response.quote}\n\n> --- ${response.author}`
+                                        );
+                                    });
+                                    break;
+                                case "joke":
+                                    // See Docs at: https://sv443.net/jokeapi/v2/
+                                    request.get("https://v2.jokeapi.dev/joke/any?lang=en&type=single&safe-mode", (error, response, body) => {
+                                        console.log("[FactOfTheDay] :joke:" + body);
+                                        response = JSON.parse(body);
+                                        Modals.showAlertModal(
+                                            "Joke of the Day",
+                                            response.joke ?
+                                            `> ${response.joke}` :
+                                            `> ${response.setup}\n> ||${response.delivery}||`
                                         );
                                     });
                                     break;
