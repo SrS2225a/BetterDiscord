@@ -140,7 +140,7 @@ class FactOfTheDay {
         const isQuote = requestType === "quote";
         const endPoint = isQuote ? "random-quotes" : "random-facts";
         
-        request.get(`https://nyxgoddess.org/api/${endPoint}`, (error, response, body) => {
+        request.get(`https://fenriris.net/api/${endPoint}`, (error, response, body) => {
             if (error) {
                 Logger.error(this._config.info.name, `Error fetching ${requestType}:`, error);
                 UI.showToast(`Error fetching ${requestType}`, { type: "error" });
