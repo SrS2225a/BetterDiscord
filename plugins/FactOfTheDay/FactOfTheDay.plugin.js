@@ -2,9 +2,9 @@
  * @name FactOfTheDay
  * @author Nyx & Xenon Colt
  * @authorId 270848136006729728
- * @version 2.0.0
+ * @version 2.0.1
  * @license MIT
- * @description Gives you a (useless) random fact, or qoute of the day each time you login to discord.
+ * @description Gives you a (useless) random fact, or quote of the day each time you login to discord.
  * @website https://www.nyxgoddess.org/
  * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js
  * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js
@@ -29,8 +29,8 @@ const config = {
                 link: "https://github.com/SrS2225a"
             }
         ],
-        version: "2.0.0",
-        description: "Gives you a (useless) random fact, or qoute of the day each time you login to discord.",
+        version: "2.0.1",
+        description: "Gives you a (useless) random fact, or quote of the day each time you login to discord.",
         github_raw: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/FactOfTheDay/FactOfTheDay.plugin.js"
     },
     changelog: [
@@ -40,21 +40,22 @@ const config = {
             items: [
                 "Refactor the plugin structure",
                 "Now fact and quote will be shown in a notice",
+                "Refactor request handling to use BdApi.Net.fetch",
             ]
         },
-        // {
-        //     title: "Fixed Few Things",
-        //     type: "fixed",
-        //     items: [
-        //         "Fixed `Change status to :` UI problem",
-        //         "Fixed problem when discord force closes where it doesn't set your status back to online",
-        //     ]
-        // },
+        {
+            title: "Fixed Few Things",
+            type: "fixed",
+            items: [
+                "Fixed a description typo",
+                "Fixed daily request logic to properly respect the \"Daily Requests\" setting",
+            ]
+        },
         // {
         //     title: "Changed Few Things",
         //     type: "changed",
         //     items: [
-        //         "Changed settings UI",
+        //         "To avoid CORs issues, use `BdApi.Net.fetch` instead of `request`",
         //     ]
         // }
     ],
@@ -85,9 +86,7 @@ let defaultSettings = {
     requestsType: "fact",
 }
 
-const request = require("request");
-
-const { Webpack, UI, Logger, Data, Utils } = BdApi;
+const { Webpack, UI, Logger, Data, Utils, Net } = BdApi;
 
 class FactOfTheDay {
     constructor() {
@@ -104,10 +103,19 @@ class FactOfTheDay {
 
         this.checkForChangelog();
 
-        if (this.settings.dailyRequests) {
+        if (!this.settings.dailyRequests) {
+            this.createRequest();
+        } else {
             const lastRequest = Data.load(this._config.info.name, "lastRequest") || 0;
-            if (!(Object.entries(this.settings).length === 0 && Date.now() - lastRequest > 24 * 60 * 60 * 1000)) this.createRequest();
-            Data.save(this._config.info.name, "lastRequest", Date.now().toString());
+            const oneDayInMs = 24 * 60 * 60 * 1000;
+            
+            if (lastRequest === 0 || (Date.now() - lastRequest) > oneDayInMs) {
+                this.createRequest();
+
+                Data.save(this._config.info.name, "lastRequest", Date.now());
+            } else {
+                Logger.log(this._config.info.name, `Skipping daily request, already shown today.`);
+            }
         }
     }
 
@@ -139,44 +147,41 @@ class FactOfTheDay {
         const requestType = this.settings.requestsType;
         const isQuote = requestType === "quote";
         const endPoint = isQuote ? "random-quotes" : "random-facts";
-        
-        request.get(`https://fenriris.net/api/${endPoint}`, (error, response, body) => {
-            if (error) {
-                Logger.error(this._config.info.name, `Error fetching ${requestType}:`, error);
-                UI.showToast(`Error fetching ${requestType}`, { type: "error" });
-                return;
-            }
 
-            try {
-                console.log(`[FactOfTheDay] :${requestType}:` + body);
-                const parsedResponse = JSON.parse(body);
+        Net.fetch(`https://fenriris.net/api/${endPoint}`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            timeout: 5000,
+        }).then(response => {
+            if (!response.ok) throw new Error(`Http Error: ${response.status}`);
+            return response.json();
+        }).then(responseData => {
+            Logger.log(this._config.info.name, `Fetched ${requestType}:`, responseData);
+            
+            // I have a another plan in my mind for this, but for now, let's just make it simple using notice;
+            // let title = isQuote ? "Quote of the Day" : "Fact of the Day";
+            let content = isQuote ? `📜 Quote: "${responseData.quote}" - ${responseData.author}` : `🔍 Fact: ${responseData.fact} - ${responseData.source}`;
 
-                // I have a another plan in my mind for this, but for now, let's just make it simple using notice;
-                // let title = isQuote ? "Quote of the Day" : "Fact of the Day";
-                let content = isQuote ? `📜 Quote: "${parsedResponse.quote}" - ${parsedResponse.author}` : `🔍 Fact: ${parsedResponse.fact} - ${parsedResponse.source}`;
+            UI.showNotice(content, {
+                type: "info",
+                timeout: 5 * 60 * 1000
+            });
 
-                UI.showNotice(content, {
-                    type: "info",
-                    timeout: 5 * 60 * 1000
-                });
-
-                // FOR FUTURE USE
-                // UI.showNotification({
-                //     id: this._config.info.name,
-                //     content: content,
-                //     type: "info",
-                //     duration: Infinity,
-                //     actions: [
-                //         {
-                //             label: "Close",
-                //         }
-                //     ]
-                // });
-            } catch (err) {
-                Logger.error(this._config.info.name, `Error parsing ${requestType} response:`, err);
-                UI.showToast(`Error parsing ${requestType} response`, { type: "error" });
-
-            }
+            // FOR FUTURE USE
+            // UI.showNotification({
+            //     id: this._config.info.name,
+            //     content: content,
+            //     type: "info",
+            //     duration: Infinity,
+            //     actions: [
+            //         {
+            //             label: "Close",
+            //         }
+            //     ]
+            // });
+        }).catch(err => {
+            Logger.error(this._config.info.name, `Error fetching ${requestType}:`, err);
+            UI.showToast(`Error fetching ${requestType}`, { type: "error" });
         });
     }
 
@@ -194,7 +199,7 @@ class FactOfTheDay {
 
             if (!currentVersionInfo.hasShownChangelog) {
                 UI.showChangelogModal({
-                    title: "AutoDNDOnGame Changelog",
+                    title: "FactOfTheDay Changelog",
                     subtitle: this._config.info.version,
                     changes: this._config.changelog
                 });
