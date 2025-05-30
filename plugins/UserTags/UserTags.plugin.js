@@ -49,7 +49,7 @@ class UserTags {
     }
 
     start() {
-        BdApi.injectCSS(config.info.name, `
+        DOM.addStyle(config.info.name, `
             .user-tag-container {
                 display: flex;
                 border: 1px solid var(--user-profile-border);
@@ -164,7 +164,6 @@ class UserTags {
 
         //             console.warn(StoreModules.UserStore.getUser(props.user.id));
         BdApi.Patcher.after("QuickSwitcher", BdApi.Webpack.getByStrings("QuickSwitcher", ".searchableTitles", { defaultExport: false }), "Z", (that, args, res) => {
-            console.warn(res);
             let query = res.props.query;
             if (query?.startsWith("&")) {
                 let users = res.props.results = [];
