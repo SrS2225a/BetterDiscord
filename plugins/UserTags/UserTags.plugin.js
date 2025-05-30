@@ -219,7 +219,7 @@ class UserTags {
         BdApi.Patcher.unpatchAll("userProfileSmall");
         BdApi.Patcher.unpatchAll("userProfileFull");
         BdApi.Patcher.unpatchAll("QuickSwitcher");
-        BdApi.clearCSS(this._config.info.name);
+        DOM.removeStyle(this._config.info.name);
     }
 
     runTags(props, ret) {
