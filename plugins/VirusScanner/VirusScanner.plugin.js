@@ -1,971 +1,1169 @@
 /**
- * @name VirusScanner
- * @author Nyx
- * @authorId 270848136006729728
- * @version 1.0.0
- * @license MIT
- * @description Uses hybrids-analysis's technology to scan for viruses in files.
- * @website https://nyxgoddess.org/
- * @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/VirusScanner.plugin.js
- * @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/VirusScanner.plugin.js
- */
+* @name VirusScanner
+* @author Nyx
+* @authorId 270848136006729728
+* @version 1.0.0
+* @license MIT
+* @description Scans urls and files to detect threats using Hybrid Analysis
+* @website https://fenriris.net/
+* @source https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/VirusScanner.plugin.js
+* @updateUrl https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/VirusScanner.plugin.js
+*/
 
-const request = require("request");
-module.exports = (() => {
-    const config = {
-        info: {
-            name: "VirusScanner",
-            authors: [
-                {
-                    name: "Nyx",
-                    discord_id: "27048136006729728",
-                }
-            ],
-            version: "1.0.0",
-            description: "Uses hybrids-analysis's technology to scan for viruses in files.",
+const config = {
+    info: {
+        name: "VirusScanner",
+        authors: [
+            {
+                name: "Nyx",
+                discord_id: "27048136006729728",
+            }
+        ],
+        version: "1.0.0",
+        description: "Scans urls and files to detect threats using Hybrid Analysis",
+    },
+    github: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins",
+    github_raw: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/VirusScanner.plugin.js",
+    main: "index.js",
+    settingsPanel: [
+        {
+            type: "text",
+            id: "apiKey",
+            name: "API Key",
+            note: "The API key you use from Hybrid Analysis. You can get one at https://www.hybrid-analysis.com/my-account?tab=%23api-key-tab",
         },
-        github: "https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins",
-        github_raw:"https://raw.githubusercontent.com/SrS2225a/BetterDiscord/master/plugins/VirusScanner.plugin.js",
-        main: "index.js",
-        defaultConfig: [
-            {
-                type: "switch",
-                id: "fullReport",
-                name: "Full Report",
-                value: false,
-                note: "When enabled, the plugin will show a full report of the scan. When disabled, it will only show the verdict."
-            },
-            {
-                type: "switch",
-                name: "Share Samples With Third Parties",
-                note: "The plugin itself does not share any data with any parties, this is just for the api with Hybrid-Analysis",
-                id: "thirdPartiesShare",
-                value: true,
-
-            },
-            {
-                type: "switch",
-                name: "Allow Community Access To Samples",
-                id: "communityAccess",
-                value: false
-            },
-            {
-                type: "textbox",
-                id: "apiKey",
-                name: "API Key",
-                note: "The API key you get from Hybrid Analysis. You can get one at https://www.hybrid-analysis.com/my-account?tab=%23api-key-tab",
-            },
-        ]
-    };
-    return !global.ZeresPluginLibrary ? class {
-            constructor() {
-                this._config = config;
-            }
-            getName() {
-                return config.info.name;
-            }
-            getAuthor() {
-                return config.info.authors.map((a) => a.name).join(", ");
-            }
-            getDescription() {
-                return config.info.description;
-            }
-            getVersion() {
-                return config.info.version;
-            }
-            load() {
-                BdApi.showConfirmationModal("Library Missing", `The library plugin needed for ${config.info.name} is missing. Please click Download Now to install it.`, {
-                    confirmText: "Download Now",
-                    cancelText: "Cancel",
-                    onConfirm: () => {
-                        request.get("https://rauenzi.github.io/BDPluginLibrary/release/0PluginLibrary.plugin.js", async (error, response, body) => {
-                            if (error) return require("electron").shell.openExternal("https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js");
-                            await new Promise(r => require("fs").writeFile(require("path").join(BdApi.Plugins.folder, "0PluginLibrary.plugin.js"), body, r));
-                        });
-                    }
-                });
-            }
-            start() {}
-            stop() {}
+        {
+            type: "switch",
+            id: "fullReport",
+            name: "Full Report",
+            value: false,
+            note: "When enabled, the plugin will do a full scan be default for any file or url to do an deep analysis on it"
+        },
+        {
+            type: "switch",
+            name: "Share Samples With Third Parties",
+            note: "This setting sets whenever hybrid analysis's scan results can be shared with third-parties. The plugin itself does not share any data to parties",
+            id: "thirdPartiesShare",
+            value: false
+        },
+        {
+            type: "number",
+            name: "Quick Scan Polling Interval (in ms)",
+            note: "How frequently the plugin should check in with the api for changes while scanning an file or url. I recommend somewhere around 5 to 15 seconds",
+            id: "quickPollingInterval",
+            value: 5000
+        },
+        {
+            type: "number",
+            name: "Full Scan Polling Interval (in ms)",
+            note: "How frequently the plugin should check in with the api for changes while scanning an file or url. I recommend somewhere around 1.5 to 5 minutes for this one",
+            id: "fullPollingInterval",
+            value: 90000
         }
-        : (([Plugin, Library]) => {
+    ]
+};
 
-            const plugin = (Plugin, Library) => {
-                const { Patcher, WebpackModules, ContextMenu, DiscordModules, Toasts, DOMTools, Modals } = Library;
-                const {Dispatcher, React} = DiscordModules;
-                const attachment = WebpackModules.find((m) => m.default?.displayName === "Attachment")
-                const uploaderIcon = React.createElement("path", {
-                    fill: "currentColor",
-                    d: "M352 96V99.56C352 115.3 339.3 128 323.6 128H188.4C172.7 128 159.1 115.3 159.1 99.56V96C159.1 42.98 202.1 0 255.1 0C309 0 352 42.98 352 96zM41.37 105.4C53.87 92.88 74.13 92.88 86.63 105.4L150.6 169.4C151.3 170 151.9 170.7 152.5 171.4C166.8 164.1 182.9 160 199.1 160H312C329.1 160 345.2 164.1 359.5 171.4C360.1 170.7 360.7 170 361.4 169.4L425.4 105.4C437.9 92.88 458.1 92.88 470.6 105.4C483.1 117.9 483.1 138.1 470.6 150.6L406.6 214.6C405.1 215.3 405.3 215.9 404.6 216.5C410.7 228.5 414.6 241.9 415.7 256H480C497.7 256 512 270.3 512 288C512 305.7 497.7 320 480 320H416C416 344.6 410.5 367.8 400.6 388.6C402.7 389.9 404.8 391.5 406.6 393.4L470.6 457.4C483.1 469.9 483.1 490.1 470.6 502.6C458.1 515.1 437.9 515.1 425.4 502.6L362.3 439.6C337.8 461.4 306.5 475.8 272 479.2V240C272 231.2 264.8 224 255.1 224C247.2 224 239.1 231.2 239.1 240V479.2C205.5 475.8 174.2 461.4 149.7 439.6L86.63 502.6C74.13 515.1 53.87 515.1 41.37 502.6C28.88 490.1 28.88 469.9 41.37 457.4L105.4 393.4C107.2 391.5 109.3 389.9 111.4 388.6C101.5 367.8 96 344.6 96 320H32C14.33 320 0 305.7 0 288C0 270.3 14.33 256 32 256H96.3C97.38 241.9 101.3 228.5 107.4 216.5C106.7 215.9 106 215.3 105.4 214.6L41.37 150.6C28.88 138.1 28.88 117.9 41.37 105.4H41.37z",
-                });
-                let scanning = []
+let defaultSettings = {
+    fullReport: false,
+    thirdPartiesShare: false,
+    quickPollingInterval: 5000,
+    fullPollingInterval: 90000,
+    apiKey: ""
+}
 
+const { Data, ContextMenu, UI, Webpack, React, DOM, Net } = BdApi;
+const SelectedChannelStore = Webpack.getModule((m) => m.getLastSelectedChannelId);
+const MessageActions = Webpack.getModule((m) => m.sendMessage);
 
-                function setAttachmentShim(location, url, text) {
-                    // use dom tools
-                    const attachmentShim = DOMTools.createElement(`<div class="attachment-shim" style="text-decoration: underline"><a class="attachment-shim-link" href="${url}" target="_blank">${text}</a></div>`)
-                    // get all attachments with the class messageAttachment-CZp8Iv
-                    const attachments = document.getElementsByClassName("messageAttachment-CZp8Iv")
+class QuickScan {
+    constructor(box, url, settings, scanStates) {
+        this.box = box;
+        this.ScanResultState = scanStates;
+        this.url = url;
+        this.settings = settings;
+        this.apiKey = settings.apiKey;
+        this.start();
+    }
 
-                    for (let i = 0; i < attachments.length; i++) {
-                        // get the attachment
-                        const attachment = attachments[i]
-                        // get the attachment's children
-                        const children = attachment.children
-                        // find a element "a" in the tree
-                        const a = attachment.querySelector("a")
-                        if (a) {
-                            // get the href
-                            const href = a.getAttribute("href")
-                            // check if the href is the same as the url
-                            if (href === location) {
-                                // always replace the attachment shim if it already exists
-                                if (attachment.querySelector(".attachment-shim")) {
-                                    attachment.querySelector(".attachment-shim").remove()
-                                }
-                                // add the shim
-                                attachment.lastChild.appendChild(attachmentShim)
-                                // break the loop
-                                break
-                            }
-                        }
-                    }
+    async start() {
+        try {
+            this.box.updateResult(this.ScanResultState.scanning);
+
+            const submission = await this.submitUrl();
+
+            if (!submission || !submission.sha256) {
+                throw new Error("Hybrid Analysis did not return a SHA256 for scanning.");
+            }
+
+            const sha256 = submission.sha256;
+            const jobId = submission.id;
+
+            if (!submission.finished) {
+                if (!jobId) throw new Error("Hybrid Analysis did not return a job ID for polling.");
+                await this.waitUntilFinished(jobId);
+            }
+
+            const summary = await this.getSummary(sha256);
+
+            if (!summary || !summary.verdict) {
+                throw new Error("Scan finished, but no verdict available.");
+            }
+
+            const verdict = this.mapVerdict(summary.verdict);
+
+            this.box.updateResult(verdict, {
+                link: `https://www.hybrid-analysis.com/sample/${sha256}`,
+                disableButtons: false
+            });
+
+        } catch (err) {
+            console.error("[QuickScan]", err);
+            this.box.updateResult(this.ScanResultState.error, {
+                customText: `Error: ${err.message || "Unknown error occurred"}`,
+                disableButtons: false
+            });
+        }
+    }
+
+    async submitUrl() {
+        const formEncoded = new URLSearchParams({
+            scan_type: "all",
+            url: this.url,
+            no_share_third_party: this.settings.thirdPartiesShare
+        });
+        const res = await Net.fetch("https://www.hybrid-analysis.com/api/v2/quick-scan/url", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "api-key": this.apiKey,
+                "User-Agent": "DiscordVirusScanner/1.0",
+                "accept": "application/json"
+            },
+            body: formEncoded.toString(),
+            timeout: 10000
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || data?.message) {
+            const message = data?.message || "Quick scan submission failed";
+            this.box.updateResult(this.ScanResultState.error, {
+                customText: `Error: ${message}`,
+                disableButtons: false
+            });
+            throw new Error(message);
+        }
+
+        return data;
+    }
+
+    async waitUntilFinished(jobId) {
+        const maxAttempts = 50;
+        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        for (let i = 0; i < maxAttempts; i++) {
+            await delay(this.settings.quickPollingInterval); // 6 seconds between attempts
+
+            const res = await Net.fetch(`https://www.hybrid-analysis.com/api/v2/quick-scan/${jobId}`, {
+                method: "GET",
+                headers: {
+                    "api-key": this.apiKey,
+                    "User-Agent": "DiscordVirusScanner/1.0"
+                },
+                timeout: 10000
+            });
+
+            if (!res.ok) continue;
+
+            const data = await res.json();;
+            if (data.finished && data.sha256) {
+                return data;
+            }
+        }
+
+        throw new Error("Scan did not complete in time.");
+    }
+
+    async getSummary(sha256) {
+        const res = await Net.fetch(`https://www.hybrid-analysis.com/api/v2/overview/${sha256}/summary`, {
+            method: "GET",
+            headers: {
+                "api-key": this.apiKey,
+                "User-Agent": "DiscordVirusScanner/1.0",
+                "accept": "application/json"
+            },
+            timeout: 10000
+        });
+
+        if (!res.ok) {
+            throw new Error("Failed to retrieve scan summary.");
+        }
+
+        return await res.json();
+    }
+
+    mapVerdict(verdict) {
+        switch (verdict?.toLowerCase()) {
+            case "malicious":
+                return this.ScanResultState.malicious;
+            case "suspicious":
+                return this.ScanResultState.suspicious;
+            case "no specific threat":
+                return this.ScanResultState.clean;
+            case "ambiguous":
+                return this.ScanResultState.ambiguous
+            default:
+                return this.ScanResultState.unknown;
+        }
+    }
+    }
+
+class FullScan {
+    constructor(box, url, settings, ScanResultState) {
+        this.box = box;
+        this.url = url;
+        this.apiKey = settings.apiKey;
+        this.settings = settings;
+        this.ScanResultState = ScanResultState;
+
+        this.start();
+    }
+
+    async start() {
+        const environments = [
+            { id: 100, name: "Windows 7 32-bit" },
+            { id: 110, name: "Windows 7 64-bit" },
+            { id: 120, name: "Windows 8.1 64-bit" },
+            { id: 140, name: "Windows 11 64-bit" },
+            { id: 160, name: "Windows 10 64-bit" },
+            { id: 200, name: "Android Static" },
+            { id: 310, name: "Linux (Ubuntu)" },
+            { id: 400, name: "macOS" }
+        ];
+
+        let selectedEnv = this.guessEnvironmentFromUrl(this.url);
+        const select = document.createElement("select");
+        select.className = "virus-scanner-select";
+        environments.forEach(env => {
+            const opt = document.createElement("option");
+            opt.value = env.id;
+            opt.textContent = env.name;
+            if (env.id === selectedEnv) opt.selected = true;
+            select.appendChild(opt);
+        });
+        const paragraph = document.createElement("p");
+        paragraph.textContent += "Choose an envoirment for sandbox analysis. If you don't know, you can leave it at the default option:";
+        paragraph.style = "color: var(--text-normal)";
+        this.box.result.appendChild(paragraph);
+        this.box.result.appendChild(select);
+        this.box.button1.textContent = "Contunie";
+        this.box.button1.onclick = async () => {
+            await this.startScan(this.url);
+        };
+    }
+
+    async startScan(url) {
+        try {
+            this.box.button1.disabled = true;
+            this.box.button2.disabled = true;
+            const select = this.box.result.querySelector("select");
+            const environmentId = select ? parseInt(select.value) : 160; // fallback to default
+            this.box.result.innerHTML = "";
+            const paragraph = document.createElement("p");
+            this.box.result.appendChild(paragraph);
+
+            const submission = await this.submitUrl(environmentId);
+
+            const reportId = `${submission.sha256}:${submission.environment_id}`;
+
+            await this.waitUntilFinished(reportId);
+
+            const summary = await this.getSummary(reportId);
+
+            this.box.container.remove(); // Clean UI
+            this.showFullScanResultsModal(summary); // Show modal
+        } catch (err) {
+            this.updateBoxState(this.ScanResultState.error, err.message);
+            this.box.button1.disabled = false;
+            this.box.button2.disabled = false;
+        }
+    }
+
+    guessEnvironmentFromUrl(url) {
+        try {
+            const ext = new URL(url).pathname.split(".").pop().toLowerCase();
+            switch (ext) {
+                case "apk": return 200;
+                case "exe":
+                case "dll": return 160;
+                case "msi": return 140;
+                case "sh":
+                case "deb":
+                case "elf": return 310;
+                case "dmg": return 400;
+                default: return 160;
+            }
+        } catch {
+            return 160;
+        }
+    }
+
+    showFullScanResultsModal(summary) {
+        const React = BdApi.React;
+        const verdictColor = {
+            "no specific threat": "#4caf50",
+            suspicious: "#ff9800",
+            malicious: "#f44336",
+            ambiguous: "#ffcc00",
+            unknown: "#bbb"
+        };
+
+        const wrapSection = (label, elements) => [
+            React.createElement("strong", {
+                style: {
+                    fontSize: "1.05em",
+                    fontWeight: "600",
+                    color: "var(--header-primary)",
+                    borderTop: "1px solid var(--background-modifier-accent)",
+                    display: "block",
+                    marginTop: "10px",
+                    marginBottom: "4px",
+                    paddingTop: "6px",
                 }
+            }, label),
+            ...elements
+        ];
 
-                function removeAttachmentShim(location) {
-                    // get all attachments with the class messageAttachment-CZp8Iv
-                    const attachments = document.getElementsByClassName("messageAttachment-CZp8Iv")
+        const threatLevels = {
+            0: {
+                text: "Informative Indicators",
+                bg: "var(--notice-background-info)",
+                color: "var(--notice-text-info)"
+            },
+            1: {
+                text: "Suspicious Indicators",
+                bg: "var(--notice-background-warning)",
+                color: "var(--notice-text-warning)"
+            },
+            2: {
+                text: "Malicious Indicators",
+                bg: "var(--notice-background-critical)",
+                color: "var(--notice-text-critical)"
+            }
+        };
 
-                    for (let i = 0; i < attachments.length; i++) {
-                        // get the attachment
-                        const attachment = attachments[i]
-                        // get the attachment's children
-                        const children = attachment.children
-                        // find a element "a" in the tree
-                        const a = attachment.querySelector("a")
-                        if (a) {
-                            // get the href
-                            const href = a.getAttribute("href")
-                            // check if the href is the same as the url
-                            if (href === location) {
-                                // always replace the attachment shim if it already exists
-                                if (attachment.querySelector(".attachment-shim")) {
-                                    attachment.querySelector(".attachment-shim").remove()
-                                }
-                                // break the loop
-                                break
-                            }
-                        }
-                    }
+        const groupedSignatures = {};
+        for (const sig of summary.signatures ?? []) {
+            const level = sig.threat_level ?? 0;
+            const category = sig.category || "Uncategorized";
+
+            if (!groupedSignatures[level]) groupedSignatures[level] = {};
+            if (!groupedSignatures[level][category]) groupedSignatures[level][category] = [];
+
+            groupedSignatures[level][category].push(sig);
+        }
+
+        const signatureElements = Object.entries(groupedSignatures).map(([level, categories]) => {
+            const total = Object.values(categories).reduce((a, b) => a + b.length, 0);
+            var threatLevel = threatLevels[level];
+
+            return React.createElement("div", {
+                style: {
+                    backgroundColor: "var(--background-secondary)",
+                    marginBottom: "1em",
+                    borderRadius: "0.5em",
+                    overflow: "hidden",
+                    border: "1px solid var(--background-modifier-accent)",
+                    padding: "0.5em"
                 }
-
-                class QuickScan {
-                    constructor(url, settings) {
-                        this.url = url
-                        this.settings = settings
-                        this.upload(url)
+            }, [
+                React.createElement("h4", {
+                    style: {
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        borderBottom: "1px solid var(--background-modifier-accent)",
+                        paddingBottom: "0.5em",
+                        marginBottom: "0.5em",
+                        color: "var(--header-primary)"
                     }
-
-                    async upload(url) {
-                        const settings = this.settings
-
-                        async function finished(sha256) {
-                            const headers = {
-                                "accept": "application/json",
-                                "content-type": "application/json",
-                                "api-key": settings.apiKey,
-                                "user-agent": "Falcon Sandbox",
-                                "Content-Type": "application/x-www-form-urlencoded",
-                            }
-                            // we are done scanning, now we can show the results
-                            await request.get({
-                                url: `https://www.hybrid-analysis.com/api/v2/overview/${sha256}/summary`,
-                                headers: headers
-                            }, function (error, response, body) {
-                                const json = JSON.parse(body)
-                                if (response.statusCode === 200 || response.statusCode === 201) {
-                                    setAttachmentShim(url, `https://www.hybrid-analysis.com/sample/${sha256}`, `Scan Complete. Threat Score: ${json.threat_score || 0}/100 (AV: ${json.multiscan_result}%) - ${json.verdict}`)
-                                } else {
-                                    scanFailed(json.message)
-                                }
-
-                            })
+                }, [
+                    threatLevel.text,
+                    React.createElement("span", {
+                        style: {
+                            background: threatLevel.bg,
+                            padding: "0.25em 0.5em",
+                            borderRadius: "1em",
+                            fontSize: "0.9em",
+                            color: threatLevel.color
                         }
+                    }, `${total}`)
+                ]),
 
-                        async function checkCompletion(id) {
-                            // check if the scan is complete
-                            const headers = {
-                                "accept": "application/json",
-                                "content-type": "application/json",
-                                "api-key": settings.apiKey,
-                                "user-agent": "Falcon Sandbox",
-                                "Content-Type": "application/x-www-form-urlencoded",
-                            }
-                            await request.get({
-                                // TODO: maybe use https://tria.ge/ instead, or option?
-                                url: `https://www.hybrid-analysis.com/api/v2/quick-scan/${id}`,
-                                headers: headers
-                            }, async function (error, response, body) {
-                                const json = JSON.parse(body)
-                                if (response.statusCode === 201 || response.statusCode === 200) {
-                                    if (json.finished) {
-                                        await finished(json.sha256)
-                                    } else {
-                                        setTimeout(() => {
-                                            checkCompletion(json.sha256, json.id)
-                                        }, 10000)
-                                    }
-                                } else {
-                                    scanFailed(json.message)
-                                }
-
-                            })
+                ...Object.entries(categories).map(([category, sigs]) =>
+                    React.createElement("div", {
+                        style: {
+                            marginBottom: "0.75em"
                         }
-
-                        function scanFailed(message) {
-                            Toasts.error(`Scan Failed: ${message}`)
-                            removeAttachmentShim(url)
-                            // we have failed to scan the file, so remove it from the scanning array
-                            scanning.splice(scanning.indexOf(url), 1)
-                        }
-
-                        let options = {}
-                        options.url = "https://www.hybrid-analysis.com/api/v2/quick-scan/url"
-                        options.headers = {
-                            "accept": "application/json",
-                            "content-type": "application/json",
-                            "api-key": settings.apiKey,
-                            "user-agent": "Falcon Sandbox",
-                        }
-                        options.formData = {"scan_type": "all", "url": url, 'no_share_third_party': settings.thirdPartiesShare.toString(), "allow_community_access": settings.communityAccess.toString(), "comment": "This is a request by BetterDiscord for the plugin VirusScanner"}
-                        options.method = "POST"
-                        // start the scan
-                        await request(options,  async function (error, response, body) {
-                            const json = JSON.parse(body)
-                            if (response.statusCode === 201 || response.statusCode === 200) {
-                                Toasts.success("Scan started successfully")
-                                setAttachmentShim(url, `https://www.hybrid-analysis.com/sample/${json.sha256}`, "Scanning... This may take some time.")
-                                // get response body
-                                if (json.finished) {
-                                    await finished(json.sha256)
-                                } else {
-                                    setTimeout(() => {
-                                        checkCompletion(sha256, id)
-                                    }, 10000)
-                                }
-                            } else {
-                                if (json.message) {
-                                    scanFailed(json.message)
-                                }
-                            }
-                        })
-                    }
-                }
-
-                class FullScan {
-                    constructor(url, settings) {
-                        this.url = url
-                        this.settings = settings
-                        this.upload(url)
-                    }
-
-                    async upload(url) {
-                        // add an array of OSes to scan in
-                        const settings = this.settings
-                        let dropdownOption = 120;
-                        const components = [React.createElement("div", {
-                            className: "form",
+                    }, [
+                        React.createElement("div", {
                             style: {
-                                width: "100%",
-                                color: "white",
-                                marginBottom: "10px"
+                                fontWeight: "bold",
+                                marginBottom: "0.25em",
+                                color: "var(--header-secondary)"
                             }
-                        }, "Before we begin, please select an OS environment to scan in. This will determine what type of analysis is performed on the file. If you are unsure, select Windows 7 x64."), React.createElement(DiscordModules.Dropdown, {
-                            onChange: (val) => {
-                                dropdownOption = val
-                            },
-                            options: [
-                                {
-                                    label: "Windows 7 64 bit",
-                                    value: 120
-                                },
-                                {
-                                    label: "Windows 7 32 bit (HWP Support)",
-                                    value: 110
-                                }, {
-                                    label: "Windows 7 32 bit",
-                                    value: 100
-                                }, {
-                                    label: "Android Static Analysis",
-                                    value: 200
-                                }, {
-                                    label: "Linux (Ubuntu 16.04, 64 bit)",
-                                    value: 300
+                        }, category),
+
+                        ...sigs.map((sig, i) => {
+
+                            const definitionRow = (label, value) => React.createElement("div", {
+                                style: {
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    marginBottom: "0.25em"
                                 }
-                            ],
-
-                        })];
-
-                        function scanFailed(message) {
-                            Toasts.error(`Scan Failed: ${message}`)
-                            removeAttachmentShim(url)
-                            // we have failed to scan the file, so remove it from the scanning array
-                            scanning.splice(scanning.indexOf(url), 1)
-                        }
-
-                        async function finished(sha256, id) {
-                            // once the scan is finished, allow the user to get the report
-                            const attachmentShim = DOMTools.createElement('<div class="attachment-shim"><span class="attachment-shim-link">"Scan Complete. Click to view results"</span></div>')
-                            const attachments = document.getElementsByClassName("messageAttachment-CZp8Iv")
-                            // loop through all attachments
-                            for (let i = 0; i < attachments.length; i++) {
-                                // get the attachment
-                                const attachment = attachments[i]
-                                // get the attachment's children
-                                const children = attachment.children
-                                // find a element "a" in the tree
-                                const a = attachment.querySelector("a")
-                                if (a) {
-                                    // get the href
-                                    const href = a.getAttribute("href")
-                                    // check if the href is the same as the url
-                                    if (href === url) {
-                                        // always replace the attachment shim if it already exists
-                                        if (attachment.querySelector(".attachment-shim")) {
-                                            attachment.querySelector(".attachment-shim").remove()
-                                        }
-                                        // add the shim
-                                        attachment.lastChild.appendChild(attachmentShim)
-                                        // break the loop
-                                        break
+                            }, [
+                                React.createElement("dt", {
+                                    style: {
+                                        marginRight: "0.5em",
+                                        fontWeight: "bold",
+                                        color: "var(--header-secondary)"
                                     }
-                                }
-                            }
-
-                            attachmentShim.addEventListener("click", async () => {
-                                // set attachment message Please wait while we retrieve the results...
-                                setAttachmentShim(url, "javascript:void(0)", "Please wait while we retrieve the results...")
-                                await run(url, sha256, id)
-                            })
-
-                            async function run(url, sha256, id) {
-
-                                let options = {}
-                                options.url = `https://www.hybrid-analysis.com/api/v2/report/${id[0]}/summary`
-                                options.headers = {
-                                    "accept": "application/json",
-                                    "content-type": "application/json",
-                                    "api-key": settings.apiKey,
-                                    "user-agent": "Falcon Sandbox",
-                                }
-                                await request.get(options, function (error, response, body) {
-                                    const json = JSON.parse(body)
-                                    if (response.statusCode === 200 || response.statusCode === 201) {
-
-                                        // creates a table of the file's indicators
-                                        function showIndicators() {
-                                            let indicatorTable = {malious: [], suspicious: [], informative: []}
-                                            for (let i = 0; i < json.signatures.length; i++) {
-                                                if (json.signatures[i].threat_level_human === "malicious") {
-                                                    indicatorTable.malious.push(json.signatures[i]);
-                                                } else if (json.signatures[i].threat_level_human === "suspicious") {
-                                                    indicatorTable.suspicious.push(json.signatures[i]);
-                                                } else if (json.signatures[i].threat_level_human === "informative") {
-                                                    indicatorTable.informative.push(json.signatures[i]);
-                                                }
-                                            }
-
-                                            function addIndicators(indicatorTable) {
-                                                let indicatorTableKeys = []
-                                                // renders the indicators of the file
-                                                if (indicatorTable.informative.length > 0) {
-                                                    let informativeSingatures = []
-                                                    let listHeader = React.createElement("h3", {
-                                                        class: "header-indicator header-indicator-informative"
-                                                    }, "Informative");
-
-                                                    var groupBy = function (xs, key) {
-                                                        return xs.reduce(function (rv, x) {
-                                                            (rv[x[key]] = rv[x[key]] || []).push(x);
-                                                            return rv;
-                                                        }, {});
-                                                    }
-
-                                                    let groupedInformative = groupBy(indicatorTable.informative.sort((a, b) => (a.relevance > b.relevance) ? 1 : -1), "category");
-                                                    for (const key in groupedInformative) {
-                                                        const categoryHeader = React.createElement("li", {
-                                                            class: "category-header"
-                                                        }, React.createElement("span", {
-                                                            class: "category-header-text"
-                                                        }, key));
-
-                                                        let indicators = []
-                                                        // React.createElement("span", {style: {float: 'right'}}, `${groupedInformative[key][i].threat_level}/10`)
-                                                        for (let i = 0; i < groupedInformative[key].length; i++) {
-                                                            let indicator = React.createElement("li", {
-                                                                title: groupedInformative[key][i].description,
-                                                                class: "indicator"
-                                                            }, groupedInformative[key][i].name);
-                                                            indicators.push(indicator);
-                                                        }
-                                                        const ul = React.createElement("ul", null, indicators);
-                                                        // put category header inside ul
-                                                        const li = React.createElement("li", {
-                                                            class: "category-section category-section-informative"
-                                                        }, categoryHeader, ul);
-                                                        informativeSingatures.push(li);
-
-                                                    }
-
-                                                    indicatorTableKeys.push(React.createElement("div", null,
-                                                        React.createElement("ul", {
-                                                            class: "indicator-list"
-                                                        }, listHeader, informativeSingatures)));
-
-                                                }
-                                                if (indicatorTable.suspicious.length > 0) {
-                                                    let informativeSingatures = []
-                                                    let listHeader = React.createElement("h3", {
-                                                        class: "header-indicator header-indicator-suspicious"
-                                                    }, "Suspicious");
-
-                                                    // group by relevance
-                                                    var groupBy = function (xs, key) {
-                                                        return xs.reduce(function (rv, x) {
-                                                            (rv[x[key]] = rv[x[key]] || []).push(x);
-                                                            return rv;
-                                                        }, {});
-                                                    }
-
-                                                    let groupedInformative = groupBy(indicatorTable.suspicious.sort((a, b) => (a.relevance > b.relevance) ? 1 : -1), "category");
-                                                    for (const key in groupedInformative) {
-
-                                                        const categoryHeader = React.createElement("li", {
-                                                            class: "category-header"
-                                                        }, React.createElement("span", {
-                                                            class: "category-header-text"
-                                                        }, key));
-
-                                                        let indicators = []
-                                                        for (let i = 0; i < groupedInformative[key].length; i++) {
-                                                            let indicator = React.createElement("li", {
-                                                                title: groupedInformative[key][i].description,
-                                                                class: "indicator"
-                                                            }, groupedInformative[key][i].name);
-                                                            indicators.push(indicator);
-                                                        }
-
-                                                        const ul = React.createElement("ul", null, indicators);
-                                                        // put category header inside ul
-                                                        const li = React.createElement("li", {
-                                                            class: "category-section category-section-suspicious",
-                                                        }, categoryHeader, ul);
-                                                        informativeSingatures.push(li);
-
-                                                    }
-                                                    indicatorTableKeys.push(React.createElement("div", null,
-                                                        React.createElement("ul", {
-                                                            class: "indicator-list"
-                                                        }, listHeader, informativeSingatures)));
-                                                }
-
-                                                if (indicatorTable.malious.length > 0) {
-                                                    let informativeSingatures = []
-                                                    let listHeader = React.createElement("h3", {
-                                                        class: "header-indicator header-indicator-malicious"
-                                                    }, "Malicious");
-
-                                                    var groupBy = function (xs, key) {
-                                                        return xs.reduce(function (rv, x) {
-                                                            (rv[x[key]] = rv[x[key]] || []).push(x);
-                                                            return rv;
-                                                        }, {});
-                                                    }
-
-                                                    let groupedInformative = groupBy(indicatorTable.malious.sort((a, b) => (a.relevance > b.relevance) ? 1 : -1), "category");
-                                                    for (const key in groupedInformative) {
-
-                                                        const categoryHeader = React.createElement("li", {
-                                                            class: "category-header"
-                                                        }, React.createElement("span", {
-                                                            class: "category-header-text"
-                                                        }, key));
-
-                                                        let indicators = []
-                                                        for (let i = 0; i < groupedInformative[key].length; i++) {
-                                                            let indicator = React.createElement("li", {
-                                                                title: groupedInformative[key][i].description,
-                                                                class: "indicator",
-                                                            }, groupedInformative[key][i].name);
-                                                            indicators.push(indicator);
-                                                        }
-
-                                                        const ul = React.createElement("ul", null, indicators);
-                                                        // put category header inside ul
-                                                        const li = React.createElement("li", {
-                                                            class: "category-section category-section-malicious",
-                                                        }, categoryHeader, ul);
-                                                        informativeSingatures.push(li);
-
-                                                    }
-                                                    indicatorTableKeys.push(React.createElement("div", null,
-                                                        React.createElement("ul", {
-                                                            class: "indicator-list"
-                                                        }, listHeader, informativeSingatures)));
-                                                }
-                                                if (indicatorTable.informative.length === 0 && indicatorTable.suspicious.length === 0 && indicatorTable.malious.length === 0) {
-                                                    indicatorTableKeys.push(React.createElement("p", {
-                                                        class: "no-indicators"
-                                                    }, "No Indicators Found"))
-                                                    return indicatorTableKeys
-                                                }
-                                                return indicatorTableKeys;
-                                            }
-
-                                            return addIndicators(indicatorTable);
-                                        }
-
-                                        function showFileDetails() {
-                                            let extractedFiles = [];
-                                            let extractedFilesKeys = [];
-
-                                            // shows the type of file
-                                            if (json.extracted_files.length > 0) {
-                                                for (let i = 0; i < json.extracted_files.length; i++) {
-                                                    const typeTagsArray = json.extracted_files[i].type_tags?.map((typeTag) => {
-                                                        return React.createElement("span", {
-                                                            class: "type-tag"
-                                                        }, typeTag);
-                                                    })
-
-                                                    // calculate the size of the file
-                                                    function calcFileSize(fileSize) {
-                                                        if (fileSize > 1000000000) {
-                                                            return (fileSize / 1000000000).toFixed(2) + " GB";
-                                                        } else if (fileSize > 1000000) {
-                                                            return (fileSize / 1000000).toFixed(2) + " MB";
-                                                        } else if (fileSize > 1000) {
-                                                            return (fileSize / 1000).toFixed(2) + " KB";
-                                                        } else {
-                                                            return fileSize + " B";
-                                                        }
-                                                    }
-
-                                                    const avLabel = json.extracted_files[i].av_total ? React.createElement("p", {class: "noMargin"}, "AV Scan Result: ", json.extracted_files[i].av_label, " (", json.extracted_files[i].av_matched, "/", json.extracted_files[i].av_total, ")") : null
-                                                    const fileDetails = React.createElement("div", null, React.createElement("span", {
-                                                        class: "noMargin file-name", title: json.extracted_files[i].description
-                                                    }, `${json.extracted_files[i].name}`, React.createElement("span", {
-                                                        class: "file-type", title: ""
-                                                    }, typeTagsArray, React.createElement("span", {
-                                                        class: "threat-level"
-                                                    }, json.extracted_files[i].threat_level_readable))))
-                                                    const fileDetailsList = React.createElement("div", {class: "noMargin"}, React.createElement("p", {class: "noMargin"}, "File Size: ", calcFileSize(json.extracted_files[i].file_size)), avLabel, React.createElement("p", {style: {margin: "0px"}}, "Runtime Process: ", json.extracted_files[i].runtime_process), React.createElement("p", {
-                                                        class: "noMargin break-word"
-                                                    }, "File MD5: ", json.extracted_files[i].md5), React.createElement("p", {
-                                                        class: "noMargin break-word"
-                                                    }, "File SHA1: ", json.extracted_files[i].sha1), React.createElement("p", {
-                                                        class: "noMargin break-word"
-                                                    }, "File SHA256: ", json.extracted_files[i].sha256))
-
-                                                    // depending on the threat level of the file, change the color of the background
-                                                    if (json.extracted_files[i].threat_level === 0) {
-                                                        let extractedFile = React.createElement("li", {
-                                                            class: "extracted-file extracted-file-clean"
-                                                        }, [fileDetails, fileDetailsList]);
-
-                                                        extractedFiles.push(extractedFile);
-                                                    }
-
-                                                    if (json.extracted_files[i].threat_level === 1) {
-                                                        let extractedFile = React.createElement("li", {
-                                                            class: "extracted-file extracted-file-suspicious"
-                                                        }, [fileDetails, fileDetailsList]);
-
-                                                        extractedFiles.push(extractedFile);
-                                                    }
-                                                    if (json.extracted_files[i].threat_level === 2) {
-                                                        let extractedFile = React.createElement("li", {
-                                                            class: "extracted-file extracted-file-malicious"
-                                                        }, [fileDetails, fileDetailsList]);
-
-                                                        extractedFiles.push(extractedFile);
-                                                    }
-                                                }
-                                                extractedFilesKeys.push(React.createElement("div", {className: "extracted-files"},
-                                                    React.createElement("ul", {
-                                                        class: "extracted-files-list"
-                                                    }, extractedFiles)));
-                                                return extractedFilesKeys;
-                                            } else {
-                                                return React.createElement("div", {className: "extracted-files"}, React.createElement("p", {
-                                                    class: "no-indicators"
-                                                }, "No extracted files found"));
-                                            }
-                                        }
-
-                                        // renders the components
-                                        const components = [
-                                            React.createElement("p", {
-                                                class: "file-descriptor"
-                                            }, `This file is classified as ${json.vx_family || "none"}, has a threat score of ${json.threat_score || 0}/100 (AV: ${json.av_detect}%) and is ${json.verdict}`),
-                                            React.createElement("div", {className: "sample-singatures"},
-                                                React.createElement("h2", {
-                                                    class: "sample-header",
-                                                }, "Indicators"),
-                                                showIndicators()),
-                                            React.createElement("div", {className: "sample-fileDeatils"}, React.createElement("h2", {
-                                                class: "sample-header",
-                                            }, "Extracted Files"), showFileDetails())
-                                        ]
-
-                                        // shows a model with the sample details
-                                        Modals.showModal(`Full Scan Report - ${json.submit_name}`, components, {
-                                            confirmText: "View On Hybrid Analysis",
-                                            onConfirm: () => {
-                                                window.open(`https://www.hybrid-analysis.com/sample/${json.sha256}/${json.job_id}`);
-                                            },
-                                            cancelText: "Close",
-                                            onCancel: async () => {
-                                                if (id.length > 1) {
-                                                    id.shift()
-                                                    await run(url, sha256, id)
-                                                }
-                                            }
-                                        })
-                                    } else {
-                                        scanFailed(json.message)
+                                }, label),
+                                React.createElement("dd", {
+                                    style: {
+                                        margin: 0,
+                                        color: "var(--text-normal)",
+                                        fontWeight: 500,
+                                        whiteSpace: "pre-wrap",
+                                        wordBreak: "break-word"
                                     }
+                                }, value)
+                            ]);
 
-                                })
+                            return React.createElement("details", {
+                                key: `sig-${i}`,
+                                style: {
+                                    background: "var(--background-secondary-alt)",
+                                    padding: "0.5em",
+                                    borderRadius: "0.4em",
+                                    marginBottom: "0.4em",
+                                    cursor: "pointer"
+                                }
+                            }, [
+                                React.createElement("summary", {
+                                    style: {
+                                        fontWeight: "bold",
+                                        alignItems: "center",
+                                        color: "var(--text-brand)",
+                                        fontSize: "1em"
+                                    }
+                                }, sig.name),
+
+                                React.createElement("dl", {
+                                    style: {
+                                        marginTop: "0.5em",
+                                        fontSize: "0.9em"
+                                    }
+                                }, [
+                                    sig.description && definitionRow("details", sig.description),
+                                    sig.origin && definitionRow("source", sig.origin),
+                                    sig.relevance && definitionRow("relevance", `${sig.relevance}/10`),
+                                    sig.attck_id && sig.attck_id_wiki && definitionRow("ATT&CK ID",
+                                        React.createElement("a", {
+                                            href: sig.attck_id_wiki,
+                                            target: "_blank",
+                                            rel: "noopener noreferrer",
+                                            style: { color: "var(--text-link)" }
+                                        }, sig.attck_id)
+                                    )
+                                ].filter(Boolean))
+                            ]);
+                        })
+                    ]))
+            ]);
+        });
+
+        const modals = Webpack.getMangled(".modalKey?", {
+            open: Webpack.Filters.byStrings(",instant:"),
+            close: Webpack.Filters.byStrings(".onCloseCallback()")
+        });
+
+        modals.open(({ onClose }) => {
+            return React.createElement("div", {
+                className: "bd-modal-root bd-modal-large",
+                style: { opacity: 1, transform: "scale(1)" }
+            }, [
+                // Header
+                React.createElement("div", {
+                    className: "bd-flex bd-flex-horizontal bd-flex-justify-start bd-flex-align-center bd-flex-no-wrap bd-modal-header",
+                    style: { flex: "0 0 auto" }
+                }, React.createElement("h1", {
+                    className: "bd-header-primary bd-text-20 bd-text-strong"
+                }, "Hybrid Analysis - Full Scan Results")),
+
+                // Content
+                React.createElement("div", {
+                    className: "bd-modal-content bd-scroller-base bd-scroller-thin",
+                    style: {
+                        color: "var(--text-normal)",
+                        maxHeight: "60vh",
+                        overflowY: "auto",
+                        padding: "12px",
+                        background: "var(--background-primary)",
+                        borderRadius: "6px"
+                    }
+                }, [
+                    // Verdict & Metadata
+                    ...wrapSection("🧠 Verdict", [
+                        React.createElement("div", {
+                            style: {
+                                color: verdictColor[summary.verdict?.toLowerCase()] || "var(--text-normal)",
+                                fontWeight: "bold"
                             }
+                        }, `Verdict: ${summary.verdict || "Unknown"}`),
+                        React.createElement("div", {}, `Threat Score: ${summary.threat_score ?? "N/A"}`),
+                        React.createElement("div", {}, `Environment: ${summary.environment_description || summary.environment_id}`),
+                        React.createElement("div", {}, `Analyzed At: ${summary.analysis_start_time ?? "N/A"}`)
+                    ]),
+
+                    // File Info
+                    ...wrapSection("📁 File Information", [
+                        React.createElement("div", {}, `Submit Name: ${summary.submit_name || "N/A"}`),
+                        React.createElement("div", {}, `Type: ${summary.type || "?"}`),
+                        React.createElement("div", {}, `Size: ${summary.size || "?"} bytes`),
+                        React.createElement("div", {}, `SHA256: ${summary.sha256}`),
+                        React.createElement("div", {}, `MD5: ${summary.md5}`),
+                        React.createElement("div", {}, `SHA1: ${summary.sha1}`)
+                    ]),
+
+                    // MITRE
+                    ...(summary.mitre_attcks?.length
+                        ? wrapSection("🎯 MITRE ATT&CK™ Techniques Detection", summary.mitre_attcks.map((t, i) =>
+                            React.createElement("div", { key: `mitre-${i}` },
+                                `${t.tactic || "?"} → ${t.technique || "?"} (${t.attck_id})`)))
+                        : []),
+                    ...wrapSection("📌 Indicators", signatureElements)
+                ]),
+
+                // Footer
+                React.createElement("div", {
+                    className: "bd-flex bd-flex-reverse bd-flex-justify-start bd-flex-align-stretch bd-flex-no-wrap bd-modal-footer",
+                    style: { flex: "0 0 auto", gap: "8px" }
+                }, [
+                    React.createElement("button", {
+                        className: "bd-button bd-button-filled bd-button-color-brand bd-button-medium bd-button-grow",
+                        type: "button",
+                        onClick: () => onClose?.()
+                    }, React.createElement("div", { className: "bd-button-content" }, "Close")),
+
+                    React.createElement("button", {
+                        className: "bd-button bd-button-link bd-button-color-primary bd-button-medium bd-button-grow",
+                        type: "button",
+                        onClick: () => {
+                            window.open(`https://www.hybrid-analysis.com/sample/${summary.sha256}`, "_blank", "noopener,noreferrer");
+                            onClose?.();
                         }
+                    }, React.createElement("div", { className: "bd-button-content" }, "View On Hybrid Analysis"))
+                ])
+            ]);
+        });
+    }
 
-                        async function checkCompletion(sha256, id) {
-                            // checks if the scan is complete
-                            let options = {}
-                            options.url = `https://www.hybrid-analysis.com/api/v2/report/${id}/state`
-                            options.headers = {
-                                "accept": "application/json",
-                                "content-type": "application/json",
-                                "api-key": settings.apiKey,
-                                "user-agent": "Falcon Sandbox",
 
-                            }
-                            await request.get(options, async function (error, response, body) {
-                                const json = JSON.parse(body)
-                                console.log(json)
-                                if (response.statusCode === 201 || response.statusCode === 200) {
-                                    if (json.error) {
-                                        scanFailed(json.error)
-                                    } else {
-                                        if (json.state === "IN_QUEUE") {
-                                            setAttachmentShim(url, `https://www.hybrid-analysis.com/sample/${sha256}`, "In Queue... This may take some time.")
-                                            setTimeout(() => {
-                                                checkCompletion(sha256, id)
-                                            }, 30000)
-                                        } else if (json.state === "IN_PROGRESS") {
-                                            let filesInProgress = 0
-                                            // tells the user how many files are in progress
-                                            for (let i = 0; i < json.related_reports.length; i++) {
-                                                if (json.related_reports[i].state === "IN_PROGRESS") {
-                                                    filesInProgress++
-                                                }
-                                            }
-                                            setAttachmentShim(url, `https://www.hybrid-analysis.com/sample/${sha256}`, `In Progress (${filesInProgress}/${json.related_reports.length})... This may take some time.`)
-                                            setTimeout(() => {
-                                                checkCompletion(sha256, id)
-                                            }, 30000)
-                                        } else if (json.state === "SUCCESS") {
-                                            const relatedReports = json.related_reports
-                                            let relatedReportsIds = []
-                                            for (let i = 0; i < relatedReports.length; i++) {
-                                                relatedReportsIds.push(relatedReports[i].report_id)
-                                            }
-                                            await finished(sha256, relatedReportsIds.length > 0 ? relatedReportsIds : [id])
-                                        }
+    updateBoxState(stateEnum, customText = null) {
+        const message = customText || stateEnum.defaultText;
+        this.box.result.textContent = `${stateEnum.emoji} ${message}`;
+        this.box.result.style.color = stateEnum.color;
+    }
 
+    async submitUrl(environmentId) {
+        const formData = new URLSearchParams({
+            url: this.url,
+            environment_id: environmentId.toString(),
+            no_share_third_party: this.settings.thirdPartiesShare
+        });
+
+        this.updateBoxState(this.ScanResultState.scanning);
+
+        const res = await Net.fetch("https://www.hybrid-analysis.com/api/v2/submit/url", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "api-key": this.apiKey,
+                "User-Agent": "DiscordVirusScanner/1.0"
+            },
+            body: formData.toString(),
+            timeout: 10000
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || data?.message) {
+            throw new Error(data?.message || "Full scan submission failed.");
+        }
+
+        return data;
+    }
+
+    async waitUntilFinished(reportId) {
+        const maxAttempts = 50;
+        const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
+        for (let i = 0; i < maxAttempts; i++) {
+            const res = await Net.fetch(`https://www.hybrid-analysis.com/api/v2/report/${reportId}/state`, {
+                method: "GET",
+                headers: {
+                    "api-key": this.apiKey,
+                    "User-Agent": "DiscordVirusScanner/1.0"
+                },
+                timeout: 10000
+            });
+
+            const data = await res.json();
+            const state = data?.state?.toUpperCase();
+
+            switch (state) {
+                case "IN_QUEUE":
+                    this.updateBoxState(this.ScanResultState.queue);
+                    break;
+                case "IN_PROGRESS":
+                    this.updateBoxState(this.ScanResultState.scanning);
+                    break;
+                case "SUCCESS":
+                    this.updateBoxState(this.ScanResultState.clean, "Scan completed. Loading results...");
+                    return;
+                case "ERROR":
+                    this.updateBoxState(this.ScanResultState.error, `Unexpected scan state: ${data.error}`);
+                default:
+                    this.updateBoxState(this.ScanResultState.error, `Unexpected scan state: ${state}`);
+                    throw new Error(`Unexpected scan state: ${state}`);
+            }
+            await delay(this.settings.fullPollingInterval);
+        }
+
+        throw new Error("Scan did not finish in time.");
+    }
+
+    async getSummary(reportId) {
+        const res = await Net.fetch(`https://www.hybrid-analysis.com/api/v2/report/${reportId}/summary`, {
+            method: "GET",
+            headers: {
+                "api-key": this.apiKey,
+                "User-Agent": "DiscordVirusScanner/1.0",
+                "accept": "application/json"
+            },
+            timeout: 10000
+        });
+
+        if (!res.ok) throw new Error("Failed to get scan summary.");
+        return await res.json();
+    }
+}
+
+class VirusScanner {
+    constructor() {
+        this._config = config;
+        this.settings = Data.load(this._config.info.name, "settings");
+        this.scanning = []
+        this.ScanResultState = {
+            queue: {
+                emoji: "⏳",
+                defaultText: "Waiting in queue...",
+                color: "#999"
+            },
+            scanning: {
+                emoji: "🔍",
+                defaultText: "Scanning… hang tight!",
+                color: "#999"
+            },
+            clean: {
+                emoji: "✅",
+                defaultText: "No threats detected. All clear!",
+                color: "#4caf50"
+            },
+            suspicious: {
+                emoji: "⚠️",
+                defaultText: "Potentially suspicious behavior found.",
+                color: "#ff9800"
+            },
+            malicious: {
+                emoji: "🚨",
+                defaultText: "Threat detected! This file may be dangerous.",
+                color: "#f44336"
+            },
+            ambiguous: {
+                emoji: "🤔",
+                defaultText: "Scan result is inconclusive. Use caution.",
+                color: "#ffcc00"
+            },
+            unknown: {
+                emoji: "❓",
+                defaultText: "Unable to determine scan result.",
+                color: "#bbb"
+            },
+            error: {
+                emoji: "❗",
+                defaultText: "Scan failed. An error occurred.",
+                color: "#f44336"
+            }
+        };
+    }
+
+    start() {
+        const pluginInstance = this;
+
+        DOM.addStyle(this._config.info.name, `
+            .virus-scanner-box {
+                margin-top: 8px;
+                padding: 8px;
+                border-radius: 4px;
+                background-color: transparent;
+            }
+
+            .virus-scanner-separator {
+                margin-bottom: 6px;
+                border: none;
+                border-top: 1px solid #555;
+            }
+
+            .virus-scanner-title {
+                font-weight: bold;
+                font-size: 1.1em;
+                margin-bottom: 6px;
+                color: #ddd;
+            }
+
+            .virus-scanner-result {
+                font-size: 0.9em;
+                margin-bottom: 6px;
+            }
+
+            .virus-scanner-button {
+                padding: 6px 12px;
+                border: none;
+                border-radius: 4px;
+                background-color: var(--button-filled-brand-background);
+                color: white;
+                font-weight: 500;
+                margin-right: 6px;
+                cursor: pointer;
+                transition: background-color 0.2s ease;
+            }
+
+            .virus-scanner-select {
+                margin-bottom: 6px;
+                padding: 6px;
+                background-color: var(--background-secondary);
+                color: var(--text-normal);
+                border-radius: 4px;
+                border: 1px solid var(--background-tertiary);
+            }
+
+            .virus-scanner-button:hover:not(:disabled) {
+                background-color: var(--button-filled-brand-background-hover);
+            }
+
+            .virus-scanner-button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            /* Secondary variant */
+            .virus-scanner-button-secondary {
+                background-color: var(--button-secondary-background);
+            }
+
+            .virus-scanner-button-secondary:hover:not(:disabled) {
+                background-color:var(--button-secondary-background-hover);
+            }
+
+            /* Danger variant */
+            .virus-scanner-button-danger {
+                background-color: var(--button-danger-background);
+            }
+
+            .virus-scanner-button-danger:hover:not(:disabled) {
+                background-color:var(--button-danger-background-hover);
+            }
+        `);
+
+        this.settings = Data.load(this._config.info.name, "settings") || defaultSettings;
+        if (Data.load(this._config.info.name, "settings") == null) this.saveAndUpdate();
+        if (!this.settings.confimedPlugin) {
+            let apiKey = this.settings.apiKey || "";
+            UI.showConfirmationModal("Third-pary notice", React.createElement("div", { style: { color: "var(--text-normal)" } },
+                React.createElement("p", null,
+                    "To analyze files and urls, this plugin uses a third-party malware scanning service. Files scanned with this plugin will be sent to ",
+                    React.createElement("a", {
+                        href: "https://www.hybrid-analysis.com/",
+                        target: "_blank",
+                        rel: "noreferrer"
+                    }, "https://www.hybrid-analysis.com"),
+                    "."
+                ),
+                React.createElement("label", {
+                    style: { fontWeight: "bold", display: "block", marginTop: "10px" }
+                }, "Hybrid Analysis API Key:"),
+                React.createElement("input", {
+                    type: "text",
+                    placeholder: "Enter your API key here",
+                    defaultValue: apiKey,
+                    style: {
+                        width: "98%",
+                        marginTop: "4px",
+                        padding: "6px",
+                        borderRadius: "4px",
+                        border: "1px solid #ccc",
+                        backgroundColor: "var(--background-secondary)",
+                        color: "color: var(--text-normal)"
+                    },
+                    onChange: (e) => apiKey = e.target.value
+                }),
+                React.createElement("small", {
+                    style: { display: "block", marginTop: "6px", color: "var(--text-normal)" }
+                }, "You can get an API key at ",
+                    React.createElement("a", {
+                        href: "https://www.hybrid-analysis.com/my-account?tab=%23api-key-tab",
+                        target: "_blank",
+                        rel: "noreferrer"
+                    }, "your Hybrid Analysis account settings"),
+                    "."
+                )
+            ), {
+                confirmText: "I Understand",
+                cancelText: "Disable Plugin",
+                onConfirm: () => {
+                    this.settings.confimedPlugin = true;
+                    this.settings.apiKey = apiKey.trim();
+                    this.saveAndUpdate();
+                },
+                onCancel: () => {
+                    BdApi.disable("VirusScanner");
+                }
+            });
+        }
+
+        this.checkForChangelog();
+
+        this.handleMessageContextMenu = ContextMenu.patch("message", (menu, props) => {
+            var url = this.isValidUrl(props.target.href || props.target.innerText);
+            if (url) {
+                var menuChildren = menu.props.children
+                if (menuChildren) {
+                    var contextMenuItem = ContextMenu.buildItem({
+                        label: "Scan Link", action: () => {
+                            if (this.scanning.includes(url.href)) {
+                                UI.showToast("This file is already being scanned, please be patient.")
+                            } else {
+                                this.scanning.push(url.href) // Prevents the same file from being scanned twice while the scan is in progress
+
+                                if (!this.settings?.fullReport) {
+                                    var box = this.setVirusScannerBoxQuick(props.target, url.href);
+                                    if (box) {
+                                        new QuickScan(box, url.href, this.settings, this.ScanResultState)
                                     }
                                 } else {
-                                    scanFailed(json.message)
-                                }
-                            })
-                        }
-
-
-                        Modals.showModal("Select an OS environment to scan in", components, {
-                            onConfirm: () => {
-                                setAttachmentShim(url, "javascript:void(0)", "Preparing scan...")
-                                let options = {}
-                                options.url = "https://www.hybrid-analysis.com/api/v2/submit/url"
-                                options.headers = {
-                                    "accept": "application/json",
-                                    "content-type": "application/json",
-                                    "api-key": this.settings.apiKey,
-                                    "user-agent": "Falcon Sandbox",
-
-                                }
-                                options.formData = {"url": url, "environment_id": dropdownOption, "no_share_third_party": this.settings.thirdPartiesShare.toString(), "allow_community_access": this.settings.communityAccess.toString(), "comment": "This is a request by BetterDiscord for the plugin VirusScanner", "experimental_anti_evasion": "true", "input_sample_tampering": "true", }
-                                options.method = "POST"
-                                // starts the scan
-                                request(options, function (error, response, body) {
-                                    const json = JSON.parse(body)
-                                    console.log(json)
-                                    if (response.statusCode === 201 || response.statusCode === 200) {
-                                        Toasts.success("Scan started successfully")
-                                        checkCompletion(json.sha256, json.job_id)
-                                        // get response body
-                                    } else {
-                                        if (json.message) {
-                                            scanFailed(json.message)
-                                        }
+                                    var box = this.setVirusScannerBoxFull(props.target);
+                                    if (box) {
+                                        new FullScan(box, url.href, this.settings, this.ScanResultState);
                                     }
-                                })
-                            },
-                            onCancel: () => {
-                                Toasts.info("Scan cancelled")
-                                removeAttachmentShim(url)
-                                scanning.splice(scanning.indexOf(url), 1)
+                                }
+
+                                const index = this.scanning.indexOf(url.href);
+                                if (index !== -1) {
+                                    this.scanning.splice(index, 1);
+                                }
                             }
-                        })
+                        }
+                    })
+                    menuChildren.props.children[7].props.children.push(contextMenuItem);
+                }
+            }
+        });
+
+
+        BdApi.Patcher.before("attchmentScan", BdApi.Webpack.getByStrings("filenameLinkWrapper,children:", { defaultExport: false }), "Z", (that, args) => {
+            const props = args?.[0];
+
+            if (!props || typeof props.renderAdjacentContent !== "function") {
+                return;
+            }
+
+            const originalRender = props.renderAdjacentContent;
+
+            props.renderAdjacentContent = function () {
+                const result = originalRender.apply(this, arguments);
+
+                if (BdApi.React.isValidElement(result) && String(result.type).includes("1WjMbG")) {
+                    if (!originalType) {
+                        originalType = result.type;
                     }
+                    result.type = scanButton(pluginInstance, props.url);
                 }
 
-                return class VirusScanner extends Plugin {
-                    onStart() {
-                        BdApi.injectCSS(config.info.name, `
-                            .attachment-shim {
-                                text-decoration: underline;
-                                font-size: small;
-                            }
-                            .attachment-shim:hover {
-                                cursor: pointer;
-                            }
-                            .attachment-shim-link {
-                                color: #7289da;
-                            }
-                            
-                            
-                            .noMargin {
-                                margin: 0;
-                            }
-                            .break-word {
-                                word-break: break-word;
-                            }
-                            .header-indicator {
-                                color: white;
-                                margin: 0;
-                                padding: 10px;
-                                border-top-right-radius: 5px;
-                                border-top-left-radius: 5px;
-                                font-size: 20px;
-                                font-weight: bold;
-                             }
-                             .header-indicator-informative {
-                                background-color: #7289da;
-                            }
-                            .header-indicator-suspicious {
-                                background-color: #f04747;
-                            }
-                            .header-indicator-malicious {
-                                background-color: #ff0000;
-                            }
-                            .category-header {
-                                margin: 0;
-                                margin-top: 8px;
-                                margin-bottom: 18px;
-                            }
-                            .category-header-text {
-                                font-size: 16px;
-                                font-weight: bold;
-                                padding: 10px;
-                                padding-left: 0;
-                                margin: 0;
-                            }
-                            .indicator {
-                                padding-left: 8px;
-                                margin-bottom:4px;
-                            }
-                            
-                            .indicator:hover {
-                                cursor: pointer;
-                                text-decoration: underline;
-                            }
-                            
-                            .category-section {
-                                padding: 10px;
-                                font-size: 14px;
-                                color: white;                              
-                            }
-                            .category-section-suspicious {
-                                background-color: rgba(240, 71, 71, 0.78);
-                                border-bottom: 1px solid #f04747;
-                            }
-                            
-                            .category-section-malicious {
-                                background-color: rgba(255, 0, 0, 0.78);
-                                border-bottom: 1px solid #ff0000;
-                            }
-                            
-                            .category-section-informative {
-                                background-color: rgba(114, 137, 218, 0.78);
-                                border-bottom: 1px solid #7289da;
-                            }
-                            
-                            .indicator-list {
-                                margin-top: 10px;
-                            }
-                            
-                            .no-indicators {
-                                margin-left: 0;
-                                margin: 10px;
-                                padding: 10px;
-                                background-color: rgb(230 30 30 / 78%);
-                            }
-                            
-                            
-                            
-                            .type-tag {
-                                background-color: #007bff;
-                                color: white;
-                                padding: 2px;
-                                border-radius: 5px;
-                                margin-right: 5px;
-                                font-size: 12px; 
-                            }
-           
-                            .file-name {
-                                font-weight: bold;
-                            }
-                            .file-name:hover {
-                                cursor: pointer;
-                            }
-                            .file-type {
-                                float: right;
-                                font-size: 12px;
-                                  
-                            }
-                            .threat-level {
-                                display: block;
-                                position: relative;
-                                top: 5px;
-                                font-size: 12px;
-                            }
-                            .extracted-file-list {
-                                margin-top: 10px;
-                            }
-                            .extracted-file {
-                                margin-bottom: 10px;
-                                padding: 10px;
-                                color: white;
-                            }
-                            .extracted-file-clean {
-                                background-color: rgba(67, 181, 129, 0.78);
-                            }
-                            .extracted-file-suspicious {
-                                background-color: rgba(240, 71, 71, 0.78);
-                            }
-                            .extracted-file-malicious {
-                                background-color: rgba(255, 0, 0, 0.78);
-                            }
-                            .sample-header {
-                                 font-size: 1.5rem;
-                                 font-weight: bold;
-                                 margin: 0;
-                                 margin-bottom: 0.5rem;
-                                 margin-top: 1rem;
-                                 color: white;
-                            }
-                            
-                            .file-descriptor {
-                                font-size: inherit;
-                                font-weight: bold;
-                                margin: 0;
-                                margin-bottom: 0.5rem;
-                                margin-top: 1rem;
-                                color: white;
-                            }
-                        `)
-
-                        ContextMenu.getDiscordMenu("MessageContextMenu").then(menu => {
-                            Patcher.after(
-                                menu,
-                                "default",
-                                (_, [props], ret) => {
-                                    let url = ""
-                                    let label = "Scan File"
-                                    if (props.attachment?.url) {
-                                        url = props.attachment.url
-                                    } else if (props.target.origin) {
-                                        url = props.target.href
-                                        label = "Scan URL"
-                                    } else {
-                                        return
-                                    }
-                                    const component = React.createElement("svg", {
-                                        class: "downloadButton-2HLFWN",
-                                        width: "24",
-                                        height: "24",
-                                        viewBox: "-80 -80 640 640",
-                                    }, uploaderIcon)
-                                    ret.props.children.splice(6, 0, ContextMenu.buildMenuItem({label: label, action: () => {
-                                            if (scanning.includes(url)) {
-                                                Toasts.error("This file is already being scanned or was scanned already.")
-                                            } else {
-                                                scanning.push(url) // Prevents the same file from being scanned twice while the scan is in progress
-                                                setAttachmentShim(url, "javascript:void(0)", "Preparing scan...")
-                                                if (!this.settings?.fullReport) {
-                                                    new QuickScan(url, this.settings)
-                                                } else {
-                                                    new FullScan(url, this.settings)
-                                                }
-
-                                            }
-                                        }
-                                    }))
-                                }
-                            )
-                        })
-                        Patcher.after(
-                            attachment,
-                            "default",
-                            (_, [props], ret) => {
-                                let button = React.createElement("svg", {
-                                    class: "downloadButton-2HLFWN",
-                                    width: "24",
-                                    height: "24",
-                                    viewBox: "-80 -80 640 640",
-
-                                    onClick: () => {
-                                        if (scanning.includes(ret.props.children[0].props.children[3].props.href)) {
-                                            Toasts.error("This file is already being scanned or was scanned already.")
-                                        } else {
-                                            scanning.push(ret.props.children[0].props.children[3].props.href) // Prevents the same file from being scanned twice while the scan is in progress
-                                            setAttachmentShim(ret.props.children[0].props.children[3].props.href, "javascript:void(0)", "Preparing scan...")
-                                            if (!this.settings?.fullReport) {
-                                                setAttachmentShim(ret.props.children[0].props.children[3].props.href, "javascript:void(0)", "Preparing scan...")
-                                                new QuickScan(ret.props.children[0].props.children[3].props.href, this.settings)
-                                            } else {
-                                                new FullScan(ret.props.children[0].props.children[3].props.href, this.settings)
-                                            }
-                                        }
-                                    }
-                                }, uploaderIcon);
-
-                                ret.props.children[0].props.children.splice(2, 0, button)
-                            }
-                        )
-                    }
-
-                    getSettingsPanel() {
-                        return this.buildSettingsPanel().getElement();
-                    }
-
-                    onStop() {
-                        Patcher.unpatchAll(config.info.name);
-                        BdApi.clearCSS(config.info.name);
-                    }
-                };
+                return result;
             };
-            return plugin(Plugin, Library);
-        })(global.ZeresPluginLibrary.buildPlugin(config));
-})();
+        });
+
+        let originalType;
+        function scanButton(pluginInstance, url) {
+            return function PatchedComponent(props) {
+                const res = originalType(props);
+
+                try {
+                    const children = res?.props?.children?.[0]?.props?.children;
+
+                    if (Array.isArray(children)) {
+                        const icon = BdApi.React.createElement(
+                            "svg",
+                            {
+                                width: "16",
+                                height: "16",
+                                viewBox: "0 0 512 512",
+                                className: "hoverButton__06ab4",
+                                fill: "none",
+                                xmlns: "http://www.w3.org/2000/svg",
+                                style: {
+                                    marginLeft: "6px",
+                                    verticalAlign: "middle",
+                                    fill: "currentColor"
+                                },
+                                onClick: () => {
+                                    if (pluginInstance.scanning.includes(url)) {
+                                        UI.showToast("This file is already being scanned, please be patient.")
+                                    } else {
+                                        pluginInstance.scanning.push(url) // Prevents the same file from being scanned twice while the scan is in progress                
+                                        if (!pluginInstance.settings?.fullReport) {
+                                            var box = pluginInstance.setVirusScannerBoxQuick(res.props.children[1].props.ref.current.parentNode, url);
+                                            if (box) {
+                                                new QuickScan(box, url, pluginInstance.settings, pluginInstance.ScanResultState)
+                                            }
+                                        } else {
+                                            var box = pluginInstance.setVirusScannerBoxFull(res.props.children[1].props.ref.current);
+                                            if (box) {
+                                                new FullScan(box, url, pluginInstance.settings, pluginInstance.ScanResultState);
+                                            }
+                                        }
+
+                                        const index = pluginInstance.scanning.indexOf(url);
+                                        if (index !== -1) {
+                                            pluginInstance.scanning.splice(index, 1);
+                                        }
+                                    }
+                                }
+                            },
+                            BdApi.React.createElement("path", {
+                                d: "M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z",
+                                fill: "currentColor"
+                            })
+                        );
+
+                        children.push(icon);
+                    }
+                } catch (e) {
+                    console.error("[VirusScanner] Failed to inject icon:", e);
+                }
+
+                return res;
+            };
+        }
+    }
+
+    stop() {
+        this.handleMessageContextMenu();
+        BdApi.Patcher.unpatchAll("attachmentScan");
+    }
+
+    isValidUrl(url) {
+        try {
+            return new URL(url);
+        } catch {
+            return false;
+        }
+    }
+
+    setVirusScannerBoxQuick(target, url) {
+        const parent = target?.parentNode.parentNode;
+        if (!parent || !(parent instanceof HTMLElement)) return;
+
+        if (parent.querySelector(".virus-scanner-box")) return;
+
+        const container = document.createElement("div");
+        container.className = "virus-scanner-box";
+
+        const hr = document.createElement("hr");
+        hr.className = "virus-scanner-separator";
+        container.appendChild(hr);
+
+        const title = document.createElement("div");
+        title.className = "virus-scanner-title";
+        title.textContent = "Virus Scanner Results";
+        container.appendChild(title);
+
+        const result = document.createElement("div");
+        result.className = "virus-scanner-result";
+        container.appendChild(result);
+
+        const button1 = document.createElement("button");
+        button1.className = "virus-scanner-button";
+        button1.textContent = "View On Hybrid Analysis";
+        button1.disabled = true;
+        button1.onclick = () => {
+            if (button1.dataset.url) {
+                const hybridLink = button1.dataset.url;
+                window.open(hybridLink, "_blank");
+            } else {
+                UI.showToast("No URL to scan.");
+            }
+        };
+
+        const button2 = document.createElement("button");
+        button2.className = "virus-scanner-button virus-scanner-button-secondary";
+        button2.textContent = "Convert To Full Scan";
+        button2.addEventListener("click", () => {
+            container.remove();
+            var box = this.setVirusScannerBoxFull(target);
+            if (box) {
+                new FullScan(box, url, this.settings, this.ScanResultState);
+            }
+        })
+
+        const button3 = document.createElement("button");
+        button3.className = "virus-scanner-button virus-scanner-button-danger";
+        button3.textContent = "Close";
+        button3.addEventListener("click", () => {
+            container.remove();
+        })
+
+        container.appendChild(button1);
+        container.appendChild(button2);
+        container.appendChild(button3);
+
+        parent.appendChild(container);
+
+        return {
+            container,
+            resultElement: result,
+            buttonQuickScan: button1,
+            buttonFullScan: button2,
+
+            updateResult(state, options = {}) {
+                const { customText, link, disableButtons = true } = options;
+
+                if (typeof state === "string") {
+                    result.textContent = state;
+                    result.style.color = customText || "#ccc"; // fallback to default color if needed
+                } else {
+                    const message = customText || state.defaultText;
+                    result.textContent = `${state.emoji} ${message}`;
+                    result.style.color = state.color;
+                }
+
+                if (link) {
+                    button1.dataset.url = link;
+                    button1.disabled = disableButtons;
+                } else {
+                    delete button1.dataset.url;
+                    button1.disabled = true;
+                }
+
+                button2.disabled = disableButtons;
+            }
+        };
+
+    }
+
+    setVirusScannerBoxFull(target) {
+        const parent = target?.parentNode.parentNode;
+        if (!parent || !(parent instanceof HTMLElement)) return;
+
+        if (parent.querySelector(".virus-scanner-box")) return;
+
+        const container = document.createElement("div");
+        container.className = "virus-scanner-box";
+
+        const hr = document.createElement("hr");
+        hr.className = "virus-scanner-separator";
+        container.appendChild(hr);
+
+        const title = document.createElement("div");
+        title.className = "virus-scanner-title";
+        title.textContent = "Virus Scanner Full Report";
+        container.appendChild(title);
+
+        const result = document.createElement("div");
+        result.className = "virus-scanner-result";
+        container.appendChild(result);
+
+        const button1 = document.createElement("button");
+        button1.className = "virus-scanner-button";
+
+        const button2 = document.createElement("button");
+        button2.className = "virus-scanner-button virus-scanner-button-danger";
+        button2.textContent = "Close";
+        button2.addEventListener("click", () => {
+            container.remove();
+        })
+
+        container.appendChild(button1);
+        container.appendChild(button2);
+
+        parent.appendChild(container);
+
+        return {
+            container,
+            result,
+            button1,
+            button2
+        }
+    }
+
+    getSettingsPanel() {
+        for (const setting of this._config.settingsPanel) {
+            if (this.settings[setting.id] !== undefined) {
+                setting.value = this.settings[setting.id];
+            }
+        }
+
+        return UI.buildSettingsPanel({
+            settings: this._config.settingsPanel,
+            onChange: (category, id, value) => {
+                this.settings[id] = value;
+                this.saveAndUpdate();
+            },
+        })
+    }
+
+    saveAndUpdate() {
+        Data.save(this._config.info.name, "settings", this.settings);
+    }
+
+    checkForChangelog() {
+        try {
+            let currentVersionInfo = {};
+            try {
+                currentVersionInfo = Object.assign({}, { version: this._config.info.version, hasShownChangelog: false }, Data.load(this._config.info.name, "currentVersionInfo"));
+            } catch (err) {
+                currentVersionInfo = { version: this._config.info.version, hasShownChangelog: false };
+            }
+            if (this._config.info.version != currentVersionInfo.version) currentVersionInfo.hasShownChangelog = false;
+            currentVersionInfo.version = this._config.info.version;
+            Data.save(this._config.info.name, "currentVersionInfo", currentVersionInfo);
+
+            if (!currentVersionInfo.hasShownChangelog) {
+                UI.showChangelogModal({
+                    title: "VirusScanner Changelog",
+                    subtitle: this._config.info.version,
+                    changes: this._config.changelog
+                });
+                currentVersionInfo.hasShownChangelog = true;
+                Data.save(this._config.info.name, "currentVersionInfo", currentVersionInfo);
+            }
+        }
+        catch (err) {
+            Logger.error(this._config.info.name, err);
+        }
+    }
+
+}
