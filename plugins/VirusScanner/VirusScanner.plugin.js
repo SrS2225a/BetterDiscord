@@ -71,7 +71,7 @@ let defaultSettings = {
     apiKey: ""
 }
 
-const { Data, ContextMenu, UI, Webpack, React, DOM, Net } = BdApi;
+const { Data, ContextMenu, UI, Webpack, React, DOM, Net, Patcher } = BdApi;
 const SelectedChannelStore = Webpack.getModule((m) => m.getLastSelectedChannelId);
 const MessageActions = Webpack.getModule((m) => m.sendMessage);
 
@@ -839,7 +839,7 @@ class VirusScanner {
                     this.saveAndUpdate();
                 },
                 onCancel: () => {
-                    BdApi.disable("VirusScanner");
+                    BdApi.Plugins.disable("VirusScanner");
                 }
             });
         }
@@ -883,7 +883,7 @@ class VirusScanner {
         });
 
 
-        BdApi.Patcher.before("attchmentScan", BdApi.Webpack.getByStrings("filenameLinkWrapper,children:", { defaultExport: false }), "Z", (that, args) => {
+        Patcher.before("attchmentScan", BdApi.Webpack.getByStrings("filenameLinkWrapper,children:", { defaultExport: false }), "Z", (that, args) => {
             const props = args?.[0];
 
             if (!props || typeof props.renderAdjacentContent !== "function") {
